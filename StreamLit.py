@@ -189,6 +189,35 @@ st.markdown("Create your personalized art viewing experience by exploring the Me
 # Function to get image URL from Met object ID
 # NEW: Load data from GitHub using the correct LFS URL
 # NEW: Load data from GitHub with multiple fallback options
+# Function to get image URL from Met object ID - with better error handling
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_image_url(object_id):
+    """Fetch image URL from Met Museum API"""
+    try:
+        if pd.isna(object_id):
+            return None
+        # Convert to int and handle any string formatting issues
+        try:
+            obj_id = int(float(object_id))  # Handle if it's a string number
+        except:
+            return None
+            
+        # Met Museum API endpoint for object
+        response = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{obj_id}", timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            # Check for primary image
+            if data.get('primaryImage'):
+                return data['primaryImage']
+            # Check for additional images
+            elif data.get('additionalImages') and len(data['additionalImages']) > 0:
+                return data['additionalImages'][0]
+        return None
+    except Exception as e:
+        # Silent fail - just return None
+        return None
+
+# Update the data loading function to properly identify the Object ID column
 @st.cache_data
 def load_data_from_github():
     """Load MetObjects.csv from GitHub repository with multiple fallback options"""
@@ -206,7 +235,7 @@ def load_data_from_github():
                 response = requests.get(url, stream=True, timeout=30)
                 response.raise_for_status()
                 
-                # Check if we got an LFS pointer (small file starting with "version")
+                # Check if we got an LFS pointer
                 first_chunk = next(response.iter_lines()).decode('utf-8', errors='ignore')
                 if first_chunk.startswith('version https://git-lfs'):
                     st.warning("Got LFS pointer, trying next URL...")
@@ -215,19 +244,48 @@ def load_data_from_github():
                 # Reset the response stream
                 response = requests.get(url, stream=True, timeout=60)
                 
-                # Load CSV - increase nrows for more artworks
+                # Load CSV
                 df = pd.read_csv(response.raw, 
-                               nrows=100000,  # Try 100,000 rows
+                               nrows=100000,
                                low_memory=False,
                                on_bad_lines='skip')
                 
+                # Display column names for debugging (can remove later)
+                st.write("Columns found:", list(df.columns)[:10])  # Show first 10 columns
+                
+                # Try to find the Object ID column (it might have a different name)
+                possible_id_columns = ['Object ID', 'object id', 'ObjectID', 'object_id', 'Id', 'ID', 'id']
+                object_id_col = None
+                for col in possible_id_columns:
+                    if col in df.columns:
+                        object_id_col = col
+                        break
+                
+                # If we didn't find it, use the first column that might be an ID
+                if object_id_col is None:
+                    for col in df.columns:
+                        if 'id' in col.lower():
+                            object_id_col = col
+                            break
+                
                 # Keep necessary columns
-                needed_cols = ['Object ID', 'Title', 'Artist Display Name', 'Object Date', 
+                needed_cols = ['Title', 'Artist Display Name', 'Object Date', 
                               'Classification', 'Department', 'Object URL', 'Medium']
                 
-                available_cols = [col for col in needed_cols if col in df.columns]
-                if available_cols:
-                    df = df[available_cols]
+                # Always include the Object ID column if found
+                cols_to_keep = []
+                if object_id_col:
+                    cols_to_keep.append(object_id_col)
+                    # Rename it to 'Object ID' for consistency
+                    df = df.rename(columns={object_id_col: 'Object ID'})
+                
+                # Add other columns if they exist
+                for col in needed_cols:
+                    if col in df.columns:
+                        cols_to_keep.append(col)
+                
+                if cols_to_keep:
+                    df = df[cols_to_keep]
                 
                 # Clean up
                 df = df.replace({np.nan: None})
