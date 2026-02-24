@@ -9,6 +9,8 @@ import random
 import re
 import base64
 
+
+
 # Page config
 st.set_page_config(
     page_title="Met Museum Personal Curator",
@@ -544,140 +546,23 @@ def load_image_from_url(url):
     return None
 
 @st.cache_data
-def load_data():
-    """Load data with multiple fallback options"""
+def fetch_from_met_api():
+    """Fetch artworks directly from Met API"""
+    # Get list of object IDs
+    response = requests.get("https://collectionapi.metmuseum.org/public/collection/v1/objects")
+    object_ids = response.json()['object_ids'][:100]  # First 100
     
-    # Option 1: Try to load from GitHub using the API (handles LFS)
-    try:
-        st.info("Attempting to load from GitHub API...")
-        
-        # GitHub API URL for the file
-        api_url = "https://api.github.com/repos/ccarls22-maker/A_Portrait_of_You_at_the_Met/contents/MetObjects.csv"
-        
-        headers = {
-            "Accept": "application/vnd.github.v3+json"
-        }
-        
-        response = requests.get(api_url, headers=headers, timeout=10)
-        
-        if response.status_code == 200:
-            data = response.json()
-            
-            # GitHub API returns content as base64
-            if 'content' in data:
-                file_content = base64.b64decode(data['content']).decode('utf-8')
-                
-                # Check if it's an LFS pointer
-                if file_content.startswith("version https://git-lfs.github.com/spec/v1"):
-                    st.warning("GitHub API returned LFS pointer. Trying direct download...")
-                    # Parse the LFS pointer to get the OID
-                    oid_match = re.search(r"oid sha256:([a-f0-9]{64})", file_content)
-                    if oid_match:
-                        oid = oid_match.group(1)
-                        # Try to construct a CDN URL for the LFS file
-                        lfs_url = f"https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/{oid}"
-                        lfs_response = requests.get(lfs_url, timeout=30)
-                        if lfs_response.status_code == 200:
-                            df = pd.read_csv(StringIO(lfs_response.text), nrows=2000, low_memory=False)
-                            df = df.replace({np.nan: None})
-                            # Add estimated period column
-                            if 'Object Date' in df.columns:
-                                df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
-                            else:
-                                # Try to find date column
-                                date_cols = [col for col in df.columns if 'date' in col.lower()]
-                                if date_cols:
-                                    df['estimated_period'] = df[date_cols[0]].apply(estimate_period_from_date)
-                                else:
-                                    df['estimated_period'] = "Unknown"
-                            st.success(f"✅ Loaded {len(df):,} artworks via LFS CDN")
-                            return df
-                else:
-                    # Regular CSV content
-                    df = pd.read_csv(StringIO(file_content), nrows=2000, low_memory=False)
-                    df = df.replace({np.nan: None})
-                    if 'Object Date' in df.columns:
-                        df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
-                    else:
-                        date_cols = [col for col in df.columns if 'date' in col.lower()]
-                        if date_cols:
-                            df['estimated_period'] = df[date_cols[0]].apply(estimate_period_from_date)
-                        else:
-                            df['estimated_period'] = "Unknown"
-                    st.success(f"✅ Loaded {len(df):,} artworks via GitHub API")
-                    return df
-    except Exception as e:
-        st.warning(f"GitHub API approach failed: {e}")
+    artworks = []
+    for obj_id in object_ids:
+        data = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{obj_id}").json()
+        artworks.append({
+            'Title': data.get('title'),
+            'Artist Display Name': data.get('artistDisplayName'),
+            'Object Date': data.get('objectDate'),
+            # ... other fields
+        })
     
-    # Option 2: Try direct raw GitHub URL with LFS workaround
-    try:
-        st.info("Attempting direct download with LFS workaround...")
-        
-        # First, get the LFS pointer
-        pointer_url = "https://raw.githubusercontent.com/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
-        pointer_response = requests.get(pointer_url, timeout=10)
-        
-        if pointer_response.status_code == 200:
-            pointer_content = pointer_response.text
-            
-            # Check if it's an LFS pointer
-            if pointer_content.startswith("version https://git-lfs.github.com/spec/v1"):
-                # Parse the OID
-                oid_match = re.search(r"oid sha256:([a-f0-9]{64})", pointer_content)
-                if oid_match:
-                    oid = oid_match.group(1)
-                    
-                    # Try different LFS CDN URLs
-                    cdn_urls = [
-                        f"https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/{oid}",
-                        f"https://github.com/ccarls22-maker/A_Portrait_of_You_at_the_Met.git/info/lfs/objects/{oid}",
-                        f"https://lfs.github.com/objects/{oid}"
-                    ]
-                    
-                    for cdn_url in cdn_urls:
-                        try:
-                            lfs_response = requests.get(cdn_url, timeout=30)
-                            if lfs_response.status_code == 200:
-                                df = pd.read_csv(StringIO(lfs_response.text), nrows=2000, low_memory=False)
-                                df = df.replace({np.nan: None})
-                                # Try to find date column
-                                date_cols = [col for col in df.columns if 'date' in col.lower()]
-                                if date_cols:
-                                    df['estimated_period'] = df[date_cols[0]].apply(estimate_period_from_date)
-                                else:
-                                    df['estimated_period'] = "Unknown"
-                                st.success(f"✅ Loaded {len(df):,} artworks via LFS CDN")
-                                return df
-                        except:
-                            continue
-    except Exception as e:
-        st.warning(f"Direct LFS approach failed: {e}")
-    
-    # Option 3: Use a sample dataset if all else fails
-    st.warning("Could not load from GitHub. Using sample data for demonstration.")
-    
-    # Create a small sample dataset for demonstration
-    sample_data = {
-        'Object ID': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-        'Title': ['Mona Lisa', 'Starry Night', 'The Persistence of Memory', 'Guernica', 'The Scream', 
-                  'Girl with a Pearl Earring', 'The Birth of Venus', 'The Night Watch', 'American Gothic', 'Water Lilies'],
-        'Artist Display Name': ['Leonardo da Vinci', 'Vincent van Gogh', 'Salvador Dali', 'Pablo Picasso', 'Edvard Munch',
-                               'Johannes Vermeer', 'Sandro Botticelli', 'Rembrandt', 'Grant Wood', 'Claude Monet'],
-        'Object Date': ['1503', '1889', '1931', '1937', '1893', '1665', '1486', '1642', '1930', '1919'],
-        'Classification': ['Painting'] * 10,
-        'Department': ['European Paintings'] * 10,
-        'Object URL': [''] * 10,
-        'Medium': ['Oil on canvas'] * 10,
-        'Culture': ['Italian', 'Dutch', 'Spanish', 'Spanish', 'Norwegian', 'Dutch', 'Italian', 'Dutch', 'American', 'French'],
-        'Period': ['Renaissance', 'Post-Impressionism', 'Modern', 'Modern', 'Modern', 'Baroque', 'Renaissance', 'Baroque', 'Modern', 'Impressionism']
-    }
-    
-    df = pd.DataFrame(sample_data)
-    df = df.replace({np.nan: None})
-    df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
-    
-    st.info("📌 Using sample dataset for demonstration. To use the full Met collection, please ensure the CSV file is accessible.")
-    return df
+    return pd.DataFrame(artworks)
 
 # ============================================================================
 # Main App
