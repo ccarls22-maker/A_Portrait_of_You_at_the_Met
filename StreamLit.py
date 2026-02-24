@@ -511,79 +511,37 @@ def display_keywords(keyword_list):
 
 @st.cache_data
 def load_data():
-    """Load data from GitHub repository with better column handling"""
+    """Load data from GitHub, handling LFS files properly"""
     try:
-        # GitHub raw URL for your file
-        github_url = "https://raw.githubusercontent.com/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
+        # Your GitHub repository details
+        repo_owner = "ccarls22-maker"
+        repo_name = "A_Portrait_of_You_at_the_Met"
+        file_path = "MetObjects.csv"
         
-        with st.spinner("📥 Loading data from GitHub... (this may take a minute)"):
-            # Download the file
-            response = requests.get(github_url, timeout=30)
-            response.raise_for_status()
+        with st.spinner("📥 Loading data from GitHub LFS..."):
+            # Use GitHub's API to get the file content (handles LFS automatically)
+            api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}"
             
-            # First, read just the header to check column names
-            header = pd.read_csv(StringIO(response.text), nrows=0)
-            st.write("Debug - Available columns:", list(header.columns))  # This will help us see the actual column names
-            
-            # Define possible column name variations
-            column_mappings = {
-                'Object ID': ['Object ID', 'object id', 'ObjectID', 'object_id'],
-                'Title': ['Title', 'title', 'Object Title', 'object title'],
-                'Artist Display Name': ['Artist Display Name', 'artist display name', 'Artist', 'artist', 'Artist Name'],
-                'Object Date': ['Object Date', 'object date', 'Date', 'date', 'ObjectDate'],
-                'Classification': ['Classification', 'classification', 'Class', 'class'],
-                'Department': ['Department', 'department', 'Dept', 'dept'],
-                'Object URL': ['Object URL', 'object url', 'URL', 'url', 'Link'],
-                'Medium': ['Medium', 'medium'],
-                'Culture': ['Culture', 'culture'],
-                'Period': ['Period', 'period']
+            headers = {
+                "Accept": "application/vnd.github.v3+json"
+                # Add "Authorization: token YOUR_TOKEN" if your repo is private
             }
             
-            # Find actual column names in the dataset
-            actual_columns = {}
-            for standard_name, possible_names in column_mappings.items():
-                for possible_name in possible_names:
-                    if possible_name in header.columns:
-                        actual_columns[standard_name] = possible_name
-                        break
+            response = requests.get(api_url, headers=headers, timeout=30)
+            response.raise_for_status()
             
-            st.write("Debug - Found columns:", actual_columns)  # This shows what we found
+            data = response.json()
             
-            if not actual_columns:
-                st.error("Could not find expected columns in the CSV file")
-                return None
+            # GitHub API returns content as base64
+            import base64
+            file_content = base64.b64decode(data['content']).decode('utf-8')
             
-            # Read the CSV with the actual column names
-            usecols = list(actual_columns.values())
+            # Read the CSV from the decoded content
+            df = pd.read_csv(StringIO(file_content), nrows=5000, low_memory=False)
             
-            # Read the CSV - limit to first 10,000 rows for performance
-            df = pd.read_csv(StringIO(response.text), 
-                           nrows=10000,
-                           usecols=usecols,
-                           low_memory=False)
-            
-            # Rename columns to standard names
-            rename_dict = {v: k for k, v in actual_columns.items()}
-            df = df.rename(columns=rename_dict)
-            
-            # Clean up data
-            df = df.replace({np.nan: None})
-            
-            # Check if Object Date exists before using it
-            if 'Object Date' in df.columns:
-                # Add estimated period column
-                with st.spinner("🔍 Analyzing artwork dates..."):
-                    df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
-            else:
-                st.warning("No date column found. Period estimation will not be available.")
-                df['estimated_period'] = "Unknown"
-            
-            st.success(f"✅ Successfully loaded {len(df):,} artworks from the Met collection!")
+            st.success(f"✅ Successfully loaded {len(df):,} artworks!")
             return df
             
-    except requests.exceptions.RequestException as e:
-        st.error(f"❌ Error downloading data from GitHub: {e}")
-        return None
     except Exception as e:
         st.error(f"❌ Error loading data: {e}")
         return None
