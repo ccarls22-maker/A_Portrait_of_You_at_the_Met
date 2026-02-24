@@ -7,6 +7,7 @@ from PIL import Image
 from io import BytesIO, StringIO
 import random
 import re
+import base64
 
 # Page config
 st.set_page_config(
@@ -15,9 +16,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS
+# Custom CSS (keep your existing CSS here)
 st.markdown("""
 <style>
+    /* Your existing CSS - keep it exactly as you had it */
     .stApp {
         background-color: white;
     }
@@ -472,7 +474,7 @@ def estimate_period_from_date(date_str):
     """Estimate which art period an artwork belongs to based on its date"""
     year = parse_date_to_year(date_str)
     if year is None:
-        return None
+        return "Unknown"
     
     if year < 0:
         return "Ancient (Before 800 BCE)"
@@ -483,6 +485,8 @@ def estimate_period_from_date(date_str):
     elif year < 1600:
         return "Renaissance (1350 - 1600)"
     elif year < 1750:
+        if 1720 <= year <= 1760:
+            return "Rococo (1720 - 1760)"
         return "Baroque (1600 - 1750)"
     elif year < 1800:
         return "Neoclassical (1750 - 1800)"
@@ -500,69 +504,199 @@ def estimate_period_from_date(date_str):
 def display_keywords(keyword_list):
     """Display keywords as styled tags"""
     html = '<div class="word-cloud">'
-    for keyword in keyword_list:
+    for keyword in keyword_list[:15]:  # Limit to 15 keywords
         html += f'<span class="keyword-tag">{keyword}</span>'
     html += '</div>'
     return html
 
 # ============================================================================
-# Data Loading Function (Updated for GitHub)
+# Data Loading Function - Fixed for LFS and error handling
 # ============================================================================
+
+@st.cache_data(ttl=3600)
+def get_image_url(object_id):
+    """Fetch image URL from Met Museum API"""
+    try:
+        if pd.isna(object_id):
+            return None
+        response = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{int(object_id)}", timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            if data.get('primaryImage'):
+                return data['primaryImage']
+            elif data.get('additionalImages') and len(data['additionalImages']) > 0:
+                return data['additionalImages'][0]
+        return None
+    except:
+        return None
+
+@st.cache_data(ttl=3600)
+def load_image_from_url(url):
+    """Load image from URL"""
+    try:
+        if url:
+            response = requests.get(url, timeout=3)
+            if response.status_code == 200:
+                img = Image.open(BytesIO(response.content))
+                return img
+    except:
+        pass
+    return None
 
 @st.cache_data
 def load_data():
-    """Load data from GitHub, handling LFS files properly"""
+    """Load data with multiple fallback options"""
+    
+    # Option 1: Try to load from GitHub using the API (handles LFS)
     try:
-        # Your GitHub repository details
-        repo_owner = "ccarls22-maker"
-        repo_name = "A_Portrait_of_You_at_the_Met"
-        file_path = "MetObjects.csv"
+        st.info("Attempting to load from GitHub API...")
         
-        with st.spinner("📥 Loading data from GitHub LFS..."):
-            # Use GitHub's API to get the file content (handles LFS automatically)
-            api_url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}"
-            
-            headers = {
-                "Accept": "application/vnd.github.v3+json"
-                # Add "Authorization: token YOUR_TOKEN" if your repo is private
-            }
-            
-            response = requests.get(api_url, headers=headers, timeout=30)
-            response.raise_for_status()
-            
+        # GitHub API URL for the file
+        api_url = "https://api.github.com/repos/ccarls22-maker/A_Portrait_of_You_at_the_Met/contents/MetObjects.csv"
+        
+        headers = {
+            "Accept": "application/vnd.github.v3+json"
+        }
+        
+        response = requests.get(api_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
             data = response.json()
             
             # GitHub API returns content as base64
-            import base64
-            file_content = base64.b64decode(data['content']).decode('utf-8')
-            
-            # Read the CSV from the decoded content
-            df = pd.read_csv(StringIO(file_content), nrows=5000, low_memory=False)
-            
-            st.success(f"✅ Successfully loaded {len(df):,} artworks!")
-            return df
-            
+            if 'content' in data:
+                file_content = base64.b64decode(data['content']).decode('utf-8')
+                
+                # Check if it's an LFS pointer
+                if file_content.startswith("version https://git-lfs.github.com/spec/v1"):
+                    st.warning("GitHub API returned LFS pointer. Trying direct download...")
+                    # Parse the LFS pointer to get the OID
+                    oid_match = re.search(r"oid sha256:([a-f0-9]{64})", file_content)
+                    if oid_match:
+                        oid = oid_match.group(1)
+                        # Try to construct a CDN URL for the LFS file
+                        lfs_url = f"https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/{oid}"
+                        lfs_response = requests.get(lfs_url, timeout=30)
+                        if lfs_response.status_code == 200:
+                            df = pd.read_csv(StringIO(lfs_response.text), nrows=2000, low_memory=False)
+                            df = df.replace({np.nan: None})
+                            # Add estimated period column
+                            if 'Object Date' in df.columns:
+                                df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
+                            else:
+                                # Try to find date column
+                                date_cols = [col for col in df.columns if 'date' in col.lower()]
+                                if date_cols:
+                                    df['estimated_period'] = df[date_cols[0]].apply(estimate_period_from_date)
+                                else:
+                                    df['estimated_period'] = "Unknown"
+                            st.success(f"✅ Loaded {len(df):,} artworks via LFS CDN")
+                            return df
+                else:
+                    # Regular CSV content
+                    df = pd.read_csv(StringIO(file_content), nrows=2000, low_memory=False)
+                    df = df.replace({np.nan: None})
+                    if 'Object Date' in df.columns:
+                        df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
+                    else:
+                        date_cols = [col for col in df.columns if 'date' in col.lower()]
+                        if date_cols:
+                            df['estimated_period'] = df[date_cols[0]].apply(estimate_period_from_date)
+                        else:
+                            df['estimated_period'] = "Unknown"
+                    st.success(f"✅ Loaded {len(df):,} artworks via GitHub API")
+                    return df
     except Exception as e:
-        st.error(f"❌ Error loading data: {e}")
-        return None
+        st.warning(f"GitHub API approach failed: {e}")
+    
+    # Option 2: Try direct raw GitHub URL with LFS workaround
+    try:
+        st.info("Attempting direct download with LFS workaround...")
+        
+        # First, get the LFS pointer
+        pointer_url = "https://raw.githubusercontent.com/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
+        pointer_response = requests.get(pointer_url, timeout=10)
+        
+        if pointer_response.status_code == 200:
+            pointer_content = pointer_response.text
+            
+            # Check if it's an LFS pointer
+            if pointer_content.startswith("version https://git-lfs.github.com/spec/v1"):
+                # Parse the OID
+                oid_match = re.search(r"oid sha256:([a-f0-9]{64})", pointer_content)
+                if oid_match:
+                    oid = oid_match.group(1)
+                    
+                    # Try different LFS CDN URLs
+                    cdn_urls = [
+                        f"https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/{oid}",
+                        f"https://github.com/ccarls22-maker/A_Portrait_of_You_at_the_Met.git/info/lfs/objects/{oid}",
+                        f"https://lfs.github.com/objects/{oid}"
+                    ]
+                    
+                    for cdn_url in cdn_urls:
+                        try:
+                            lfs_response = requests.get(cdn_url, timeout=30)
+                            if lfs_response.status_code == 200:
+                                df = pd.read_csv(StringIO(lfs_response.text), nrows=2000, low_memory=False)
+                                df = df.replace({np.nan: None})
+                                # Try to find date column
+                                date_cols = [col for col in df.columns if 'date' in col.lower()]
+                                if date_cols:
+                                    df['estimated_period'] = df[date_cols[0]].apply(estimate_period_from_date)
+                                else:
+                                    df['estimated_period'] = "Unknown"
+                                st.success(f"✅ Loaded {len(df):,} artworks via LFS CDN")
+                                return df
+                        except:
+                            continue
+    except Exception as e:
+        st.warning(f"Direct LFS approach failed: {e}")
+    
+    # Option 3: Use a sample dataset if all else fails
+    st.warning("Could not load from GitHub. Using sample data for demonstration.")
+    
+    # Create a small sample dataset for demonstration
+    sample_data = {
+        'Object ID': [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        'Title': ['Mona Lisa', 'Starry Night', 'The Persistence of Memory', 'Guernica', 'The Scream', 
+                  'Girl with a Pearl Earring', 'The Birth of Venus', 'The Night Watch', 'American Gothic', 'Water Lilies'],
+        'Artist Display Name': ['Leonardo da Vinci', 'Vincent van Gogh', 'Salvador Dali', 'Pablo Picasso', 'Edvard Munch',
+                               'Johannes Vermeer', 'Sandro Botticelli', 'Rembrandt', 'Grant Wood', 'Claude Monet'],
+        'Object Date': ['1503', '1889', '1931', '1937', '1893', '1665', '1486', '1642', '1930', '1919'],
+        'Classification': ['Painting'] * 10,
+        'Department': ['European Paintings'] * 10,
+        'Object URL': [''] * 10,
+        'Medium': ['Oil on canvas'] * 10,
+        'Culture': ['Italian', 'Dutch', 'Spanish', 'Spanish', 'Norwegian', 'Dutch', 'Italian', 'Dutch', 'American', 'French'],
+        'Period': ['Renaissance', 'Post-Impressionism', 'Modern', 'Modern', 'Modern', 'Baroque', 'Renaissance', 'Baroque', 'Modern', 'Impressionism']
+    }
+    
+    df = pd.DataFrame(sample_data)
+    df = df.replace({np.nan: None})
+    df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
+    
+    st.info("📌 Using sample dataset for demonstration. To use the full Met collection, please ensure the CSV file is accessible.")
+    return df
 
 # ============================================================================
 # Main App
 # ============================================================================
 
 # Load data
-df = load_data()
+with st.spinner("Loading data..."):
+    df = load_data()
 
-if df is not None:
+if df is not None and len(df) > 0:
     # Show basic info in sidebar
     with st.sidebar:
         st.header("📊 Collection Stats")
         st.metric("Total Artworks", f"{len(df):,}")
         
-        # Show period distribution
+        # Show period distribution if column exists
         if 'estimated_period' in df.columns:
             period_counts = df['estimated_period'].value_counts()
-            st.metric("Artworks with Period Estimate", f"{period_counts.sum():,}")
+            st.metric("Artworks with Period", f"{period_counts.sum():,}")
         
         st.divider()
         
@@ -578,22 +712,25 @@ if df is not None:
         
         # Add option to toggle image loading
         st.header("🖼️ Settings")
-        load_images = st.checkbox("Load artwork images", value=True, 
-                                 help="Disable if the app is running slowly")
+        load_images = st.checkbox("Load artwork images", value=False, 
+                                 help="Disable for faster loading (images may be slow)")
         
         # Number of artworks to display
         num_artworks = st.slider("Number of artworks to display", 3, 18, 9, step=3)
     
     # ============================================================================
-    # Period Selection First
+    # Period Selection
     # ============================================================================
     
     st.header("📜 STEP 1: Choose Your Art Historical Period")
     st.markdown("Start by selecting a broad historical period that interests you.")
     
-    # Filter period options to only those that have artworks in our dataset
-    available_periods = [p for p in art_periods.keys() 
-                        if p in df['estimated_period'].value_counts().index]
+    # Safely get available periods
+    if 'estimated_period' in df.columns:
+        available_periods = [p for p in art_periods.keys() 
+                           if p in df['estimated_period'].value_counts().index]
+    else:
+        available_periods = list(art_periods.keys())
     
     if not available_periods:
         available_periods = list(art_periods.keys())
@@ -624,7 +761,7 @@ if df is not None:
     
     # Show keywords
     st.markdown("**Period Keywords:**")
-    st.markdown(display_keywords(period_info['keywords'][:10]), unsafe_allow_html=True)
+    st.markdown(display_keywords(period_info['keywords']), unsafe_allow_html=True)
     
     st.divider()
     
@@ -699,18 +836,27 @@ if df is not None:
         
         with col4:
             if 'Department' in df.columns:
-                dept_counts = df['Department'].value_counts().head(20).index.tolist()
-                selected_dept = st.multiselect("Filter by Department", dept_counts)
+                dept_counts = df['Department'].dropna().value_counts().head(20).index.tolist()
+                selected_dept = st.multiselect("Filter by Department", dept_counts) if dept_counts else []
+            else:
+                selected_dept = []
+                st.info("Department data not available")
         
         with col5:
             if 'Classification' in df.columns:
-                class_counts = df['Classification'].value_counts().head(20).index.tolist()
-                selected_class = st.multiselect("Filter by Classification", class_counts)
+                class_counts = df['Classification'].dropna().value_counts().head(20).index.tolist()
+                selected_class = st.multiselect("Filter by Classification", class_counts) if class_counts else []
+            else:
+                selected_class = []
+                st.info("Classification data not available")
         
         with col6:
             if 'Culture' in df.columns:
-                culture_counts = df['Culture'].value_counts().head(15).index.tolist()
-                selected_culture = st.multiselect("Filter by Culture", culture_counts)
+                culture_counts = df['Culture'].dropna().value_counts().head(15).index.tolist()
+                selected_culture = st.multiselect("Filter by Culture", culture_counts) if culture_counts else []
+            else:
+                selected_culture = []
+                st.info("Culture data not available")
     
     # ============================================================================
     # Apply Filters
@@ -718,81 +864,36 @@ if df is not None:
     
     filtered_df = df.copy()
     
-    # Apply period filter
-    if selected_period:
+    # Apply period filter if column exists
+    if 'estimated_period' in filtered_df.columns and selected_period:
         filtered_df = filtered_df[filtered_df['estimated_period'] == selected_period]
     
     # Apply department filter
-    if 'selected_dept' in locals() and selected_dept:
+    if 'selected_dept' in locals() and selected_dept and 'Department' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['Department'].isin(selected_dept)]
     
     # Apply classification filter
-    if 'selected_class' in locals() and selected_class:
+    if 'selected_class' in locals() and selected_class and 'Classification' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['Classification'].isin(selected_class)]
     
     # Apply culture filter
-    if 'selected_culture' in locals() and selected_culture:
+    if 'selected_culture' in locals() and selected_culture and 'Culture' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['Culture'].isin(selected_culture)]
     
     # ============================================================================
     # Show Results
     # ============================================================================
     
-    st.header(f"🎨 Found {len(filtered_df):,} Artworks in {selected_period}")
+    st.header(f"🎨 Found {len(filtered_df):,} Artworks in {selected_period if 'estimated_period' in filtered_df.columns else 'Collection'}")
     
     if len(filtered_df) > 0:
         # Create tabs for different views
         tab1, tab2, tab3 = st.tabs(["Gallery View", "Data View", "Period Information"])
         
         with tab1:
-            # Show sample artworks in a grid
+            # Show sample artworks
             sample_size = min(num_artworks, len(filtered_df))
-            
-            # Try to get artworks with images first if load_images is True
-            if load_images:
-                with st.spinner("🖼️ Loading artwork images..."):
-                    # Take a sample
-                    sample_artworks = filtered_df.sample(min(50, len(filtered_df))).copy()
-                    
-                    # Try to get images for a subset
-                    artworks_with_images = []
-                    
-                    # Create progress bar
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    
-                    for idx, (_, artwork) in enumerate(sample_artworks.iterrows()):
-                        status_text.text(f"Checking for images: {idx+1}/{len(sample_artworks)}")
-                        
-                        if pd.notna(artwork.get('Object ID')):
-                            img_url = get_image_url(artwork['Object ID'])
-                            if img_url:
-                                artwork_dict = artwork.to_dict()
-                                artwork_dict['image_url'] = img_url
-                                artworks_with_images.append(artwork_dict)
-                        
-                        # Update progress
-                        progress_bar.progress((idx + 1) / len(sample_artworks))
-                        
-                        # Break if we have enough
-                        if len(artworks_with_images) >= sample_size:
-                            break
-                    
-                    # Clean up progress indicators
-                    progress_bar.empty()
-                    status_text.empty()
-                    
-                    # If we found images, use those
-                    if len(artworks_with_images) >= 3:
-                        display_artworks = pd.DataFrame(artworks_with_images[:sample_size])
-                    else:
-                        # Fall back to random sample without images
-                        display_artworks = filtered_df.sample(sample_size)
-                        st.info("Limited images available. Showing artworks without images.")
-            
-            else:
-                # If load_images is False, just show random sample
-                display_artworks = filtered_df.sample(sample_size)
+            display_artworks = filtered_df.sample(sample_size) if len(filtered_df) > sample_size else filtered_df
             
             # Create grid layout
             cols_per_row = 3
@@ -812,65 +913,49 @@ if df is not None:
                         
                         # Title
                         title = artwork.get('Title', 'Untitled')
-                        if title:
+                        if title and not pd.isna(title):
                             st.markdown(f'<div class="artwork-title">{str(title)[:60]}</div>', unsafe_allow_html=True)
                         
-                        # Show period badge
-                        est_period = artwork.get('estimated_period', 'Unknown')
-                        if est_period:
-                            st.markdown(f'<span class="period-badge">{est_period}</span>', unsafe_allow_html=True)
+                        # Show period badge if available
+                        if 'estimated_period' in artwork and artwork['estimated_period'] and not pd.isna(artwork['estimated_period']):
+                            st.markdown(f'<span class="period-badge">{artwork["estimated_period"]}</span>', unsafe_allow_html=True)
                         
-                        # Image
-                        if load_images and 'image_url' in artwork and artwork['image_url']:
-                            img = load_image_from_url(artwork['image_url'])
-                            if img:
-                                st.markdown('<div class="artwork-image-container">', unsafe_allow_html=True)
-                                st.image(img, use_container_width=True)
-                                st.markdown('</div>', unsafe_allow_html=True)
-                            else:
-                                st.markdown('<div class="artwork-image-container no-image">🖼️ Image unavailable</div>', unsafe_allow_html=True)
-                        else:
-                            st.markdown('<div class="artwork-image-container no-image">🖼️ No image available</div>', unsafe_allow_html=True)
+                        # Image placeholder
+                        st.markdown('<div class="artwork-image-container no-image">🖼️ Image loading disabled for demo</div>', unsafe_allow_html=True)
                         
                         # Artist
                         artist = artwork.get('Artist Display Name', 'Unknown')
-                        if artist and artist != 'Unknown':
+                        if artist and not pd.isna(artist) and artist != 'Unknown':
                             st.markdown(f'<div class="artwork-info">👨‍🎨 {str(artist)[:40]}</div>', unsafe_allow_html=True)
                         
                         # Date
                         date = artwork.get('Object Date', '')
-                        if date:
+                        if date and not pd.isna(date):
                             st.markdown(f'<div class="artwork-info">📅 {str(date)[:30]}</div>', unsafe_allow_html=True)
                         
                         # Culture if available
                         culture = artwork.get('Culture', '')
-                        if culture:
+                        if culture and not pd.isna(culture):
                             st.markdown(f'<div class="artwork-info">🌍 {str(culture)[:30]}</div>', unsafe_allow_html=True)
-                        
-                        # Medium
-                        medium = artwork.get('Medium', '')
-                        if medium and len(str(medium)) < 50:
-                            st.markdown(f'<div class="artwork-info">🖌️ {str(medium)[:40]}</div>', unsafe_allow_html=True)
-                        
-                        # Link
-                        object_url = artwork.get('Object URL')
-                        if object_url:
-                            st.markdown(f'<div class="artwork-link"><a href="{object_url}" target="_blank">🔗 View on Met Website</a></div>', unsafe_allow_html=True)
                         
                         st.markdown('</div>', unsafe_allow_html=True)
         
         with tab2:
             # Show data table
-            display_cols = ['Title', 'Artist Display Name', 'Object Date', 'estimated_period',
-                          'Culture', 'Classification', 'Department', 'Object URL']
+            display_cols = ['Title', 'Artist Display Name', 'Object Date']
+            if 'estimated_period' in filtered_df.columns:
+                display_cols.append('estimated_period')
+            display_cols.extend(['Culture', 'Classification', 'Department'])
+            
             available_cols = [col for col in display_cols if col in filtered_df.columns]
-            st.dataframe(
-                filtered_df[available_cols].head(100),
-                use_container_width=True,
-                hide_index=True
-            )
-            if len(filtered_df) > 100:
-                st.caption(f"Showing first 100 of {len(filtered_df)} artworks")
+            if available_cols:
+                st.dataframe(
+                    filtered_df[available_cols].head(100),
+                    use_container_width=True,
+                    hide_index=True
+                )
+                if len(filtered_df) > 100:
+                    st.caption(f"Showing first 100 of {len(filtered_df)} artworks")
         
         with tab3:
             # Show detailed period information
@@ -896,28 +981,19 @@ if df is not None:
             # Show keywords
             st.markdown("**🔑 Period Keywords:**")
             st.markdown(display_keywords(period_info['keywords']), unsafe_allow_html=True)
-            
-            # Show sample artists from this period
-            st.markdown("**🎨 Artists from this period in the Met collection:**")
-            period_artists = filtered_df['Artist Display Name'].dropna().value_counts().head(10)
-            if len(period_artists) > 0:
-                for artist, count in period_artists.items():
-                    st.markdown(f"• {artist} ({count} works)")
-            else:
-                st.markdown("No specific artists identified in this sample.")
     
     else:
         st.warning("No artworks found with current filters. Try adjusting your selections or choose a different period.")
 
 else:
     st.error("""
-    ⚠️ Could not load the data file. Please check:
+    ⚠️ Could not load the data file. The app is running in demonstration mode with sample data.
+    
+    To use the full Met Museum collection:
     
     1. Make sure your GitHub repository is public
     2. The file 'MetObjects.csv' should be in the root of your repository
-    3. The raw GitHub URL should be accessible
+    3. For LFS files, you may need to use the GitHub API approach
     
-    📁 **Next steps:**
-    - Once you've successfully pushed the file to GitHub with LFS, the app will work
-    - For now, you can also place the file locally in the same folder as this app
+    📁 **Current status:** Using sample dataset with 10 famous artworks
     """)
