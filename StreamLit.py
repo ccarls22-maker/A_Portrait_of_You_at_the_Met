@@ -14,35 +14,203 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS (keeping your original CSS - truncated for brevity)
+# Custom CSS (keeping your original CSS)
 st.markdown("""
 <style>
-    /* ... keep your existing CSS ... */
+    /* Make the entire app background white */
+    .stApp {
+        background-color: white;
+    }
+    
+    /* Make the main content area white */
+    .main > div {
+        background-color: white;
+    }
+    
+    /* Style the sidebar to be white with dark text */
+    section[data-testid="stSidebar"] {
+        background-color: white !important;
+        border-right: 1px solid #e0e0e0;
+    }
+    
+    section[data-testid="stSidebar"] .stMarkdown,
+    section[data-testid="stSidebar"] .stText,
+    section[data-testid="stSidebar"] p,
+    section[data-testid="stSidebar"] h1,
+    section[data-testid="stSidebar"] h2,
+    section[data-testid="stSidebar"] h3,
+    section[data-testid="stSidebar"] h4,
+    section[data-testid="stSidebar"] h5,
+    section[data-testid="stSidebar"] h6,
+    section[data-testid="stSidebar"] label,
+    section[data-testid="stSidebar"] span {
+        color: #1E1E1E !important;
+    }
+    
+    /* Style sidebar widgets */
+    section[data-testid="stSidebar"] .stCheckbox label,
+    section[data-testid="stSidebar"] .stSlider label,
+    section[data-testid="stSidebar"] .stSelectbox label {
+        color: #1E1E1E !important;
+    }
+    
+    /* Style sidebar metric */
+    section[data-testid="stSidebar"] [data-testid="stMetricLabel"] p,
+    section[data-testid="stSidebar"] [data-testid="stMetricValue"] p {
+        color: #1E1E1E !important;
+    }
+    
+    /* Style sidebar expander */
+    section[data-testid="stSidebar"] .streamlit-expanderHeader {
+        color: #1E1E1E !important;
+        background-color: white !important;
+    }
+    
+    /* Style all text for white background */
+    .stMarkdown, .stText, p, h1, h2, h3, h4, h5, h6 {
+        color: #1E1E1E !important;
+    }
+    
+    /* Style for metric labels and values */
+    [data-testid="stMetricLabel"] p, [data-testid="stMetricValue"] p {
+        color: #1E1E1E !important;
+    }
+    
+    /* Style for selectbox labels and text */
+    .stSelectbox label, .stSelectbox div[data-baseweb="select"] span {
+        color: #1E1E1E !important;
+    }
+    
+    /* Style for multiselect text */
+    .stMultiSelect label, .stMultiSelect div[data-baseweb="select"] span {
+        color: #1E1E1E !important;
+    }
+    
+    /* Style for slider text */
+    .stSlider label, .stSlider span {
+        color: #1E1E1E !important;
+    }
+    
+    /* Style for expander text */
+    .streamlit-expanderHeader {
+        color: #1E1E1E !important;
+    }
+    
+    /* Style for tab text */
+    .stTabs [data-baseweb="tab-list"] button p {
+        color: #1E1E1E !important;
+    }
+    
+    /* Style for info/warning/error messages */
+    .stAlert p {
+        color: #1E1E1E !important;
+    }
+    
+    .word-cloud {
+        background-color: #f0f2f6;
+        padding: 10px;
+        border-radius: 5px;
+        margin-top: 5px;
+        margin-bottom: 15px;
+        font-size: 0.9em;
+    }
+    .keyword-tag {
+        display: inline-block;
+        background-color: #e6e9f0;
+        padding: 3px 8px;
+        margin: 2px;
+        border-radius: 12px;
+        font-size: 0.85em;
+        color: #1E1E1E;
+    }
+    .filter-header {
+        margin-bottom: 5px;
+        font-weight: bold;
+        color: #1E1E1E;
+    }
+    .artwork-card {
+        border: 1px solid #ddd;
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+        background-color: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        height: 100%;
+    }
+    .artwork-title {
+        font-size: 1.1em;
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #1E1E1E;
+    }
+    .artwork-image-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 10px 0;
+        min-height: 200px;
+        background-color: #f8f9fa;
+        border-radius: 5px;
+        padding: 5px;
+    }
+    .artwork-image {
+        max-width: 100%;
+        max-height: 250px;
+        object-fit: contain;
+        border-radius: 3px;
+    }
+    .artwork-info {
+        font-size: 0.9em;
+        color: #4A4A4A;
+        margin-top: 10px;
+    }
+    .artwork-link {
+        margin-top: 10px;
+        text-align: center;
+    }
+    .artwork-link a {
+        color: #0066CC;
+        text-decoration: none;
+    }
+    .artwork-link a:hover {
+        text-decoration: underline;
+    }
+    .no-image {
+        color: #666;
+        font-style: italic;
+        text-align: center;
+        padding: 20px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("🎨 Met Museum Personal Curator")
 st.markdown("Create your personalized art viewing experience by exploring the Metropolitan Museum of Art's collection through different artistic lenses.")
 
-# Function to get image URL from Met object ID
+# Function to get image URL from Met object ID - FIXED VERSION
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_image_url(object_id):
     """Fetch image URL from Met Museum API"""
     try:
         if pd.isna(object_id):
             return None
+        # Convert to int and handle any string formatting issues
         try:
+            # Handle if it's a string with commas or decimals
             if isinstance(object_id, str):
                 object_id = object_id.replace(',', '').strip()
             obj_id = int(float(object_id))
         except (ValueError, TypeError):
             return None
             
+        # Met Museum API endpoint for object
         response = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{obj_id}", timeout=3)
         if response.status_code == 200:
             data = response.json()
+            # Check for primary image
             if data.get('primaryImage'):
                 return data['primaryImage']
+            # Check for additional images
             elif data.get('additionalImages') and len(data['additionalImages']) > 0:
                 return data['additionalImages'][0]
         return None
@@ -63,140 +231,70 @@ def load_image_from_url(url):
         pass
     return None
 
-# NEW: Efficient random sampling using chunking
+# SIMPLIFIED: Just load first N rows - MUCH FASTER!
 @st.cache_data(ttl=3600)  # Cache for 1 hour
-def load_sampled_data(sample_size=15000, random_seed=42):
-    """Load a random sample of MetObjects.csv efficiently using chunking"""
+def load_data():
+    """Load first 15,000 rows of MetObjects.csv from GitHub"""
     try:
         github_url = "https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
         
-        # Create a progress bar
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        status_text.text("Fetching file information...")
-        
-        # First, get the total number of rows by reading just the first chunk
-        chunk_iterator = pd.read_csv(github_url, chunksize=10000, low_memory=False)
-        total_rows = 0
-        column_names = None
-        
-        # Count total rows efficiently
-        status_text.text("Counting total rows...")
-        for i, chunk in enumerate(chunk_iterator):
-            if i == 0:
-                column_names = chunk.columns.tolist()
-            total_rows += len(chunk)
-            progress_bar.progress(min(0.1, (i * 10000) / 500000))  # Cap at 10%
-        
-        status_text.text(f"Total rows: {total_rows:,}. Sampling {sample_size:,} rows...")
-        
-        # Generate random row indices to sample
-        np.random.seed(random_seed)
-        sampled_indices = sorted(np.random.choice(total_rows, size=min(sample_size, total_rows), replace=False))
-        
-        # Reset chunk iterator
-        chunk_iterator = pd.read_csv(github_url, chunksize=10000, low_memory=False)
-        
-        # Collect sampled rows
-        sampled_rows = []
-        current_row = 0
-        chunk_count = 0
-        
-        for chunk in chunk_iterator:
-            chunk_count += 1
-            # Find indices in this chunk that we want to sample
-            chunk_start = current_row
-            chunk_end = current_row + len(chunk)
+        with st.spinner("Loading Met Museum collection..."):
+            # Simply read the first 15,000 rows - this is fast!
+            df = pd.read_csv(github_url, nrows=15000, low_memory=False)
             
-            # Find which sampled indices fall in this chunk
-            indices_in_chunk = [idx - chunk_start for idx in sampled_indices 
-                              if chunk_start <= idx < chunk_end]
+            # Check for Object ID column (might be named differently)
+            object_id_col = None
+            possible_names = ['Object ID', 'ObjectID', 'object id', 'object_id', 'Id', 'ID']
+            for name in possible_names:
+                if name in df.columns:
+                    object_id_col = name
+                    break
             
-            if indices_in_chunk:
-                sampled_rows.append(chunk.iloc[indices_in_chunk])
+            if object_id_col and object_id_col != 'Object ID':
+                df = df.rename(columns={object_id_col: 'Object ID'})
             
-            current_row = chunk_end
-            progress_bar.progress(min(0.1 + 0.9 * (chunk_count * 10000) / total_rows, 1.0))
-            status_text.text(f"Processing chunk {chunk_count}... ({len(sampled_rows)} rows collected)")
-        
-        # Combine all sampled chunks
-        if sampled_rows:
-            df = pd.concat(sampled_rows, ignore_index=True)
-        else:
-            df = pd.DataFrame()
-        
-        progress_bar.empty()
-        status_text.empty()
-        
-        if len(df) == 0:
-            st.error("No data could be sampled.")
-            return None
-        
-        # Check for Object ID column
-        object_id_col = None
-        possible_names = ['Object ID', 'ObjectID', 'object id', 'object_id', 'Id', 'ID']
-        for name in possible_names:
-            if name in df.columns:
-                object_id_col = name
-                break
-        
-        if object_id_col and object_id_col != 'Object ID':
-            df = df.rename(columns={object_id_col: 'Object ID'})
-        
-        # Keep only necessary columns
-        keep_cols = []
-        if 'Object ID' in df.columns:
-            keep_cols.append('Object ID')
-        
-        for col in ['Title', 'Artist Display Name', 'Object Date', 
-                   'Classification', 'Department', 'Object URL', 'Medium']:
-            if col in df.columns:
-                keep_cols.append(col)
-        
-        if keep_cols:
-            df = df[keep_cols]
-        
-        # Clean up data
-        df = df.replace({np.nan: None})
-        
-        if 'Title' in df.columns:
-            df = df[df['Title'].notna()]
-        
-        return df
-        
+            # Keep only necessary columns
+            keep_cols = []
+            if 'Object ID' in df.columns:
+                keep_cols.append('Object ID')
+            
+            # Add other columns if they exist
+            for col in ['Title', 'Artist Display Name', 'Object Date', 
+                       'Classification', 'Department', 'Object URL', 'Medium']:
+                if col in df.columns:
+                    keep_cols.append(col)
+            
+            if keep_cols:
+                df = df[keep_cols]
+            
+            # Clean up data
+            df = df.replace({np.nan: None})
+            
+            # Remove rows with no title
+            if 'Title' in df.columns:
+                df = df[df['Title'].notna()]
+            
+            st.success(f"✅ Successfully loaded {len(df):,} artworks!")
+            return df
+            
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return None
 
-# NEW: Pre-calculated statistics for faster filtering
+# Get department and classification options
 @st.cache_data
 def get_filter_options(df):
-    """Pre-calculate filter options for faster UI rendering"""
+    """Get unique values for filters"""
     options = {}
     if df is not None:
         if 'Department' in df.columns:
-            options['departments'] = df['Department'].value_counts().head(20).index.tolist()
+            options['departments'] = df['Department'].dropna().unique().tolist()[:20]
         if 'Classification' in df.columns:
-            options['classifications'] = df['Classification'].value_counts().head(20).index.tolist()
+            options['classifications'] = df['Classification'].dropna().unique().tolist()[:20]
     return options
 
-# NEW: Faster image checking with batch processing
-@st.cache_data(ttl=3600)
-def batch_check_images(object_ids, max_images=50):
-    """Check multiple images at once with rate limiting"""
-    images = []
-    for i, obj_id in enumerate(object_ids[:max_images]):
-        if i > 0 and i % 10 == 0:  # Rate limit
-            time.sleep(0.5)
-        if pd.notna(obj_id):
-            url = get_image_url(obj_id)
-            if url:
-                images.append((obj_id, url))
-    return dict(images)
-
-# Load data with progress feedback
-with st.spinner("Loading Met Museum collection... This may take a moment."):
-    df = load_sampled_data(sample_size=15000)
+# Load data - this will be fast now!
+df = load_data()
 
 # Get filter options
 if df is not None:
@@ -245,7 +343,7 @@ if df is not None and len(df) > 0:
     # Show basic info in sidebar
     with st.sidebar:
         st.header("📊 Collection Stats")
-        st.metric("Sampled Artworks", f"{len(df):,}")
+        st.metric("Artworks Loaded", f"{len(df):,}")
         
         st.divider()
         
@@ -265,6 +363,11 @@ if df is not None and len(df) > 0:
         
         # Number of artworks to display
         num_artworks = st.slider("Number of artworks to display", 3, 18, 9, step=3)
+        
+        # Optional: Add a refresh button
+        if st.button("🔄 Refresh Sample"):
+            st.cache_data.clear()
+            st.rerun()
     
     # Main interface
     st.header("🎯 Choose Your Preferences")
@@ -351,7 +454,7 @@ if df is not None and len(df) > 0:
         filtered_df = filtered_df[filtered_df['Classification'].isin(selected_class)]
     
     # Show results
-    st.header(f"🎨 Found {len(filtered_df):,} Artworks in Sample")
+    st.header(f"🎨 Found {len(filtered_df):,} Artworks")
     
     if len(filtered_df) > 0:
         tab1, tab2 = st.tabs(["Gallery View", "Data View"])
@@ -361,24 +464,33 @@ if df is not None and len(df) > 0:
             
             if load_images:
                 with st.spinner("Loading artwork images..."):
-                    # Take a sample of artworks to check for images
-                    sample_artworks = filtered_df.sample(min(50, len(filtered_df))).copy()
+                    # Take a random sample from filtered results
+                    display_artworks = filtered_df.sample(min(50, len(filtered_df))).copy()
                     
-                    # Batch check for images
-                    object_ids = sample_artworks['Object ID'].tolist() if 'Object ID' in sample_artworks.columns else []
-                    image_urls = batch_check_images(object_ids, max_images=50)
+                    # Add image URLs
+                    if 'Object ID' in display_artworks.columns:
+                        image_urls = {}
+                        for idx, obj_id in enumerate(display_artworks['Object ID'].head(sample_size * 2)):
+                            if idx % 10 == 0:  # Small delay to avoid rate limiting
+                                time.sleep(0.1)
+                            if pd.notna(obj_id):
+                                url = get_image_url(obj_id)
+                                if url:
+                                    image_urls[obj_id] = url
+                                    if len(image_urls) >= sample_size:
+                                        break
+                        
+                        display_artworks['image_url'] = display_artworks['Object ID'].map(image_urls)
                     
-                    # Add image URLs to dataframe
-                    sample_artworks['image_url'] = sample_artworks['Object ID'].map(image_urls)
-                    
-                    # Filter to those with images
-                    artworks_with_images = sample_artworks[sample_artworks['image_url'].notna()]
+                    # Filter to those with images if possible
+                    artworks_with_images = display_artworks[display_artworks['image_url'].notna()]
                     
                     if len(artworks_with_images) >= 3:
                         display_artworks = artworks_with_images.head(sample_size)
                     else:
                         display_artworks = filtered_df.sample(sample_size)
-                        st.info("Limited images available. Showing artworks without images.")
+                        if len(artworks_with_images) == 0:
+                            st.info("No images available for this selection. Showing artworks without images.")
             else:
                 display_artworks = filtered_df.sample(sample_size)
             
