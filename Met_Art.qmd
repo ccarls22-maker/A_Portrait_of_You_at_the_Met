@@ -1,0 +1,747 @@
+---
+title: "Data Club - Curate a Personal Met Viewing Expience"
+format: html
+---
+
+```{python}
+import pandas as pd
+```
+
+```{python}
+df_art = pd.read_csv("C:/Users/court/Downloads/Data_Clubs_Project_1/archive/MetObjects.csv")
+```
+
+```{python}
+df_art.describe()
+```
+
+---
+
+# Step 1: Define general Periods
+
+Let's Start by creating classifications for the art so we can begain to parse the "vibe" / tone for the art.
+
+# Ancient Art:
+Before 800 BCE (this is usually classified by geography)
+(Topics: Sacred ritual, power of rulers, the afterlife, foundational storytelling in visual form.)
+
+# Art Periods:
+Greek/Roman: 800 BCE - 400 CE
+(Topics: Human idealism (Greek), civic power & realism (Roman), mythology, perfected form.)
+
+# Medieval: 400 - 1350
+(Topics: The glory of God, religious narrative, hierarchy over realism, symbolism.)
+# (Movements within: Byzantine, Romanesque, Gothic. ) # Note to self maybe break into geogrpahy for these? 
+
+# Renaissance: 1350 - 1600
+(Topics: Humanism, rediscovery of classical art, scientific perspective, individual genius.)
+# (Movements within: Early Renaissance, High Renaissance, Mannerism.) # Note to self break by time
+
+# Baroque: 1600 - 1750
+(Topics: Drama, tension, grandeur, theatrical light, engaging the senses.)
+# *(Movements within: Rococo [late Baroque, ~1720-1760])*
+
+# Neoclassical: 1750 - 1800
+(Topics: Civic virtue, logic, order, classical models from Ancient Greece/Rome.)
+
+# Romantic: 1800 -1865
+(Topics: Emotion, the sublime in nature, individualism, dramatic rebellion.)
+
+
+# Art Movements:
+Impressionism: 1865 - 1885
+(Topics: Modern life, fleeting light, sensory impression, painting en plein air.)
+
+# Post-Impressionism: 1885 - 1910
+(Topics: Symbolic color, structural form, emotional and personal expression.)
+(Related: Fauvism, Expressionism.)
+
+# Modern: 1910 - 1960
+(Topics: Experimentation, abstraction, rejecting tradition, art about art itself.)
+(Key Movements: Cubism, Futurism, Dada, Surrealism, Abstract Expressionism.)
+
+# Contemporary: 1960 - Now
+(Topics: Conceptualism, identity politics, globalization, questioning boundaries.)
+(Key Movements: Pop Art, Minimalism, Performance Art, Installation, Postmodernism.)
+
+---
+
+# Step 2: Define Categories for Viewing
+
+
+Let's create some options for a viewers..
+
+# Step 2.1: Personality Archetypes (Broad Filter)
+These are the foundational lenses through which a user sees the world.
+---
+
+## The Classicist: 
+
+Values order, balance, clarity, and timeless ideals. Seeks harmony and perfected form.
+
+Potential Art Match: Greek/Roman, Renaissance, Neoclassical.
+
+
+## The Romantic: 
+Driven by emotion, intuition, and imagination. Drawn to the dramatic, the mysterious, and the sublime power of nature.
+
+Potential Art Match: Romantic, Baroque, Gothic, some Surrealism.
+
+
+## The Realist: Pragmatic, observant, and grounded. Values truth, authenticity, and the unvarnished moment.
+
+Potential Art Match: Realism, Social Realism, some Dutch Golden Age.
+
+## The Innovator: 
+Experimental, abstract, and intellectual. Challenges conventions and explores ideas, form, and perception itself.
+
+Potential Art Match: Cubism, Futurism, Abstract Expressionism, much of Modern art.
+
+## The Symbolist: 
+Seeks deeper meaning, metaphor, and the spiritual. Drawn to mystery, dreams, and coded narratives.
+
+Potential Art Match: Medieval, Symbolist movement, Surrealism, much of Contemporary conceptual art.
+
+## The Hedonist: Sensual, decorative, and attuned to pleasure, beauty, and the elegance of surface.
+
+Potential Art Match: Rococo, Impressionism, some Post-Impressionism (like Renoir), Art Nouveau.
+---
+
+# Step 2.2: Moods / Vibes (The Specific Filter)
+These are the immediate emotional or atmospheric states.
+---
+# A. Energy & Composition
+## Dynamic & Dramatic: 
+Diagonal lines, intense contrast, theatrical movement.
+Periods: Baroque, Romantic, Futurism.
+## Calm & Balanced: 
+Horizontal lines, symmetrical composition, serene subjects.
+Periods: Renaissance, Neoclassical, Minimalism.
+## Chaotic & Raw: 
+Energetic brushwork, fragmented forms, intense emotion.
+Periods: Expressionism, Abstract Expressionism, some Contemporary.
+---
+# B. Color & Light
+## Warm & Golden: 
+Rich golds, deep reds, chiaroscuro (strong light/shadow).
+Periods: Renaissance, Baroque, Romantic.
+## Cool & Ethereal:
+Icy blues, silvery light, misty atmospheres.
+Periods: Gothic, Romantic (Caspar David Friedrich), some Surrealism.
+## Vibrant & Unnatural: 
+Bold, non-representational color used for emotional impact.
+Periods: Fauvism, Post-Impressionism (Van Gogh), Pop Art.
+## Muted & Naturalistic: 
+Earth tones, "real" light, subtle gradations.
+Periods: Realism, Impressionism (overcast days), Dutch Golden Age.
+---
+# C. Subject & Concept
+## The Human Figure:
+Idealized, expressive, or deconstructed.
+Periods: Greek/Roman, Renaissance, Expressionism, Cubism.
+## Nature & Landscape: 
+Sublime, pastoral, or scientifically observed.
+Periods: Romantic, Impressionism, Realism, Hudson River School.
+## The Inner World:
+Dreams, the subconscious, spiritual visions.
+Periods: Surrealism, Symbolism, Medieval visionary art.
+## Urban & Modern Life
+The city, technology, leisure, social critique.
+Periods: Impressionism, Realism, Ashcan School, Futurism, Pop Art.
+## The Abstract Idea: 
+Pure form, color, geometry, or conceptual premise.
+Periods: Abstract Expressionism, Minimalism, Conceptual Art.
+---
+# D. Texture & Surface
+## Smooth & Polished: 
+Perfect marble, flawless glaze, invisible brushwork.
+Periods: Greek/Roman, Renaissance, Neoclassical.
+## Textured & Painterly
+Visible brushstrokes, thick impasto, evidence of the artist's hand.
+Periods: Impressionism, Post-Impressionism, Abstract Expressionism.
+## Ornate & Decorative
+Intricate detail, pattern, gilt, and curvature.
+Periods: Rococo, Gothic, Art Nouveau.
+----
+
+# Step 3: Let's start by normalizing these dates!
+
+In a previous class I normailized dates, this section is open to interpretation, and the way I'll do this is proably to formulaic for most art historians, but this isn't that serious of a project/objective so it should be fine. 
+
+If an Object Begin Date does not Equal Object End Date I'll take the midpoint of the dates. 
+
+
+```{python}
+
+df_art['year'] = df_art.apply(
+    lambda row: row['Object Begin Date'] if row['Object Begin Date'] == row['Object End Date']
+    else (row['Object Begin Date'] + row['Object End Date']) / 2, 
+    axis=1
+)
+
+df_art
+
+```
+
+```{python}
+import numpy as np
+df_art['year'] = df_art['year'].round(0)
+
+df_art
+```
+
+# Step 4" Cateogize dates into periods/movements
+Lets start by putting dates into broad time period cateogies and movement cateogries. 
+
+Using past art history knowledge I'll combine date and Country (when country data is avalible) to get more specific movements. I know there are plenty of Geolocation tags but for the sake of my sanity I'll pair it down to just conuntry alone when determining movement. 
+
+```{python}
+def period_movement(year, country=None):
+
+    year_float = float(year)
+    country_str = str(country).lower() if country and pd.notna(country) else ""
+    
+    # Ancient Art: Before 800 BCE
+    if year_float < -800:
+        return ("Ancient Art", "Ancient (Pre-800 BCE)")
+    
+    # Greek/Roman: 800 BCE - 400 CE
+    elif -800 <= year_float <= 400:
+        if year_float < 0:
+            return ("Greek/Roman", "Greek")
+        else:
+            return ("Greek/Roman", "Roman")
+    
+    # Medieval: 400 - 1350
+    elif 400 < year_float <= 1350:
+        if 'byzant' in country_str or 'turkey' in country_str or 'constantinople' in country_str:
+            return ("Medieval", "Byzantine")
+        elif 1000 <= year_float <= 1200 and ('france' in country_str or 'germany' in country_str or 'italy' in country_str):
+            return ("Medieval", "Romanesque")
+        elif 1150 <= year_float <= 1350 and ('france' in country_str or 'england' in country_str or 'germany' in country_str):
+            return ("Medieval", "Gothic")
+        else:
+            return ("Medieval", "Medieval")
+    
+    # Renaissance: 1350 - 1600
+    elif 1350 < year_float <= 1600:
+        if 1350 < year_float <= 1490:
+            movement = "Early Renaissance"
+        elif 1490 < year_float <= 1520:
+            movement = "High Renaissance"
+        else:
+            movement = "Mannerism"
+        
+        # Add country context if available
+        if country_str:
+            if 'italy' in country_str or 'florence' in country_str or 'venice' in country_str:
+                movement = f"Italian {movement}"
+            elif 'northern' in country_str or 'netherland' in country_str or 'flemish' in country_str:
+                movement = f"Northern {movement}"
+        
+        return ("Renaissance", movement)
+    
+    # Baroque: 1600 - 1750
+    elif 1600 < year_float <= 1750:
+        if 1720 <= year_float <= 1760 and ('france' in country_str or 'germany' in country_str):
+            return ("Baroque", "Rococo")
+        else:
+            if 'italy' in country_str:
+                return ("Baroque", "Italian Baroque")
+            elif 'spain' in country_str:
+                return ("Baroque", "Spanish Baroque")
+            elif 'flemish' in country_str or 'netherland' in country_str:
+                return ("Baroque", "Flemish Baroque")
+            else:
+                return ("Baroque", "Baroque")
+    
+    # Neoclassical: 1750 - 1800
+    elif 1750 < year_float <= 1800:
+        return ("Neoclassical", "Neoclassical")
+    
+    # Romantic: 1800 - 1865
+    elif 1800 < year_float <= 1865:
+        if 'germany' in country_str:
+            return ("Romantic", "German Romanticism")
+        elif 'england' in country_str or 'british' in country_str:
+            return ("Romantic", "British Romanticism")
+        elif 'france' in country_str:
+            return ("Romantic", "French Romanticism")
+        else:
+            return ("Romantic", "Romanticism")
+    
+    # Impressionism: 1865 - 1885
+    elif 1865 < year_float <= 1885:
+        return ("Impressionism", "Impressionism")
+    
+    # Post-Impressionism: 1885 - 1910
+    elif 1885 < year_float <= 1910:
+        if 'france' in country_str and year_float >= 1900:
+            return ("Post-Impressionism", "Fauvism")
+        elif 'germany' in country_str or 'austria' in country_str:
+            return ("Post-Impressionism", "Expressionism")
+        else:
+            return ("Post-Impressionism", "Post-Impressionism")
+    
+    # Modern: 1910 - 1960
+    elif 1910 < year_float <= 1960:
+        if 1910 < year_float <= 1925:
+            if 'france' in country_str or 'spain' in country_str:
+                return ("Modern", "Cubism")
+            elif 'italy' in country_str:
+                return ("Modern", "Futurism")
+            elif 'switzerland' in country_str or 'germany' in country_str:
+                return ("Modern", "Dada")
+            else:
+                return ("Modern", "Early Modernism")
+        
+        elif 1925 < year_float <= 1945:
+            if 'spain' in country_str or 'france' in country_str:
+                return ("Modern", "Surrealism")
+            elif 'germany' in country_str or 'norway' in country_str:
+                return ("Modern", "Expressionism")
+            else:
+                return ("Modern", "Surrealism/Expressionism")
+        
+        else:  # 1945 - 1960
+            if 'united states' in country_str or 'usa' in country_str or 'america' in country_str:
+                return ("Modern", "Abstract Expressionism")
+            else:
+                return ("Modern", "Abstract Expressionism/Informel")
+    
+    # Contemporary: 1960 - Now
+    else:  
+        if 1960 < year_float <= 1980:
+            if 'united states' in country_str or 'britain' in country_str:
+                return ("Contemporary", "Pop Art")
+            elif 'united states' in country_str:
+                return ("Contemporary", "Minimalism")
+            else:
+                return ("Contemporary", "Pop Art/Minimalism")
+        
+        elif 1980 < year_float <= 2000:
+            return ("Contemporary", "Postmodernism")
+        
+        else:  # 2000 - Now
+            return ("Contemporary", "Contemporary")
+
+def add_period(df, year_column='year', country_column='Country'):
+    
+    classifications = df.apply(
+        lambda row: period_movement(
+            row[year_column], 
+            row[country_column] if country_column in df.columns else None
+        ), 
+        axis=1
+    )
+    
+    df['art_period'] = classifications.apply(lambda x: x[0])
+    df['art_movement'] = classifications.apply(lambda x: x[1])
+    
+    return df
+
+df_art = add_period(df_art)
+```
+
+
+# Step 5: Lets Update Broad period catoegies with new naming conventions: 
+
+## Ancient Art: 
+art_period: "Ancient Art"
+#art_movement: "Ancient (Pre-800 BCE)"
+Before 800 BCE (this is usually classified by geography)
+
+## Art Periods: Greek/Roman: 800 BCE - 400 CE
+art_period: "Greek/Roman"
+art_movement: "Greek" (for BCE dates) or "Roman" (for CE dates)
+
+## Medieval: 400 - 1350
+art_period: "Medieval"
+art_movement: "Medieval", "Byzantine", "Romanesque", or "Gothic"
+
+## Renaissance: 1350 - 1600
+art_period: "Renaissance"
+art_movement: "Early Renaissance", "High Renaissance", "Mannerism", 
+    "Italian Early Renaissance", "Northern Renaissance", etc.
+
+## Baroque: 1600 - 1750
+art_period: "Baroque"
+art_movement: "Baroque", "Italian Baroque", "Spanish Baroque", 
+    "Flemish Baroque", "Rococo"
+
+## Neoclassical: 1750 - 1800
+art_period: "Neoclassical"
+art_movement: "Neoclassical"
+
+## Romantic: 1800 -1850
+art_period: "Romantic"
+art_movement: "Romanticism", "German Romanticism", 
+     "British Romanticism", "French Romanticism"
+
+## Realistic: 1850 - 1900 
+art_period: "Realistic" 
+art_movement: "Realism" (Note: using "Realistic" period but "Realism" movement)
+*** Added this period to get an overall better theme for this period the movement catoegory will be used to break this down further. 
+
+## Impressionism: 1865 - 1885
+art_period: "Impressionism"
+art_movement: "Impressionism"
+
+## Post-Impressionism: 1885 - 1910
+art_period: "Post-Impressionism"
+art_movement: "Post-Impressionism", "Fauvism", "Expressionism"
+
+## Modern: 1910 - 1960
+art_period: "Modern"
+art_movement: "Early Modernism", "Cubism", "Futurism", "Dada", 
+    "Surrealism", "Expressionism", "Abstract Expressionism"
+
+## Contemporary: 1960 - Now
+art_period: "Contemporary"
+art_movement: "Pop Art", "Minimalism", "Postmodernism", 
+    "Contemporary", "Pop Art/Minimalism"
+---
+
+# Step 6: Defining style/mood/vibe words
+
+```{python}
+
+df_art['Classification'] = df_art['Classification'].str.extract(r'^([^|]*)')
+
+u_classifications = df_art['Classification'].value_counts()
+u_classifications.columns = ['Classification', 'Count']
+u_classifications
+```
+
+```{python}
+
+u_Department = df_art['Department'].value_counts()
+u_Department.columns = ['Department', 'Count']
+u_Department
+```
+
+Exported both of these as CSVs 
+
+Gave results to Deepseek AI so it come up with a third option for filters: 
+
+## Category 1: Painting & Color Arts
+What you'll see: Canvases, pigments, visible brushwork, color as expression
+
+Paintings (11,049)
+
+Paintings-Decorative (99)
+
+Paintings-Panels (39)
+
+Paintings-Fresco (19)
+
+Paintings-Canvas (2)
+
+Paintings-Frescoes (1)
+
+Paintings-Icons (1)
+
+Related Departments: European Paintings, American Paintings and Sculpture, Modern and Contemporary Art
+
+## Category 2: Sculpture & 3D Form
+What you'll see: Figures, forms, materials carved/cast/modeled in space
+
+Sculpture (4,494)
+
+Sculpture-Architectural (770)
+
+Sculpture-Bronze (681)
+
+Sculpture-Miniature (296)
+
+Sculpture-Stone (276)
+
+Sculpture-Wood (238)
+
+Sculpture-Reproductions (13)
+
+Sculpture-Conceptual Art (3)
+
+Sculpture-Marble (2)
+
+Sculpture-Ceramics (2)
+
+Related Departments: European Sculpture and Decorative Arts, Greek and Roman Art, Modern and Contemporary Art
+
+## Category 3: Works on Paper
+What you'll see: Drawings, prints, watercolors - intimate, immediate works
+
+Prints (105,653)
+
+Drawings (29,291)
+
+Works on Paper-Drawings (107)
+
+Pastels & Oil Sketches on Paper (29)
+
+Works on Paper-Engravings (29)
+
+Cut Paper (810)
+
+Paper-Drawings (132)
+
+Illustrated Books (597)
+
+Stencils (569)
+
+Related Departments: Drawings and Prints, Photographs, The Libraries
+
+## Category 4: Photography & Lens-Based
+What you'll see: Captured moments, documentary, artistic photography
+
+Photographs (38,200)
+
+Negatives (6,483)
+
+Transparencies (209)
+
+Paper-Photographs (11)
+
+Related Departments: Photographs, Modern and Contemporary Art
+
+## Category 5: Textiles & Fabric Arts
+What you'll see: Woven, embroidered, dyed fabrics, clothing, tapestries
+
+Textiles-Woven (11,058)
+
+Textiles-Laces (4,980)
+
+Textiles-Embroidered (4,160)
+
+Textiles (3,080)
+
+Textiles-Printed (2,560)
+
+Textiles-Trimmings (1,950)
+
+Textiles-Velvets (1,443)
+
+Textiles-Tapestries (643)
+
+Textiles-Rugs (621)
+
+Textiles-Costumes (575)
+
+Related Departments: Costume Institute, Arts of Africa/Oceania/Americas, Asian Art
+
+## Category 6: Ceramics & Clay
+What you'll see: Pots, vessels, porcelain, earthenware, fired clay objects
+
+Ceramics (13,332)
+
+Ceramics-Porcelain (4,104)
+
+Ceramics-Pottery (3,528)
+
+Ceramics-Containers (1,086)
+
+Ceramics-Vessels (908)
+
+Ceramics-Porcelain-Export (787)
+
+Ceramics-Tiles (361)
+
+Ceramics-Sculpture (415)
+
+Ceramics-Implements (265)
+
+Related Departments: Asian Art, European Sculpture and Decorative Arts, Egyptian Art
+
+## Category 7: Metal Arts
+What you'll see: Jewelry, armor, silverware, bronze work, weapons
+
+Metalwork-Silver (3,974)
+
+Metalwork (2,372)
+
+Gold and Silver (1,950)
+
+Metal-Ornaments (1,896)
+
+Metalwork-Iron (1,262)
+
+Silver (1,156)
+
+Metalwork-Gilt Bronze (886)
+
+Metalwork-Gold and Platinum (699)
+
+Metalwork-Copper alloy (587)
+
+Swords (1,080)
+
+Arms and Armor (35)
+
+Related Departments: Arms and Armor, European Sculpture and Decorative Arts, Islamic Art
+
+## Category 8: Glass & Transparency
+What you'll see: Stained glass, vessels, beads, translucent objects
+
+Glass (8,846)
+
+Glass-Stained (1,066)
+
+Glass-Vessels (854)
+
+Glass-Ornaments (134)
+
+Glass-Painted (108)
+
+Related Departments: European Sculpture and Decorative Arts, Medieval Art, The Cloisters
+
+## Category 9: Wood & Organic Materials
+What you'll see: Carved wood, furniture, natural materials, organic forms
+
+Furniture (1,826)
+
+Wood-Sculpture (1,670)
+
+Woodwork-Furniture (1,415)
+
+Woodwork (713)
+
+Wood-Implements (684)
+
+Wood-Containers (199)
+
+Wood-Musical Instruments (184)
+
+Wood-Furniture (94)
+
+Woodwork-Architectural (97)
+
+Related Departments: American Decorative Arts, European Sculpture and Decorative Arts, Arts of Africa/Oceania/Americas
+
+## Category 10: Precious & Miniature Arts
+What you'll see: Small-scale luxury items, jewelry, gems, intricate work
+
+Jewelry (2,415)
+
+Gems (1,613)
+
+Jade (1,657)
+
+Medals and Plaquettes (1,681)
+
+Netsuke (941)
+
+Snuff Bottles (629)
+
+Inrō (539)
+
+Ojime (151)
+
+Miniatures (257)
+
+Related Departments: Asian Art, Islamic Art, European Sculpture and Decorative Arts
+
+## Category 11: Books & Manuscripts
+What you'll see: Illuminated manuscripts, books, calligraphy, documents
+
+Books (20,441)
+
+Albums (1,893)
+
+Codices (1,400)
+
+Manuscripts and Illuminations (343)
+
+Calligraphy (332)
+
+Manuscripts (76)
+
+Books & Manuscripts (19)
+
+Related Departments: The Libraries, Medieval Art, Islamic Art
+
+## Category 12: Ancient & Archaeological
+What you'll see: Artifacts, tablets, seals, objects from ancient civilizations
+
+Terracottas (1,763)
+
+Clay-Tablets-Inscribed (536)
+
+Stone-Cylinder Seals (446)
+
+Coins (1,127)
+
+Papyrus (204)
+
+Cesnola Inscriptions (189)
+
+Tomb Pottery (303)
+
+Related Departments: Egyptian Art, Ancient Near Eastern Art, Greek and Roman Art
+
+## Category 13: Contemporary & Mixed Media
+What you'll see: Modern techniques, installations, conceptual works, new media
+
+Installations (47)
+
+Variable Media (77)
+
+Collages (65)
+
+Assemblages (7)
+
+Ephemera (855)
+
+Posters (167)
+
+Miscellaneous (737)
+
+Related Departments: Modern and Contemporary Art, Photographs
+
+## Category 14: Musical Instruments
+What you'll see: Historical instruments from around the world
+
+Musical Instruments (5,303)
+
+Chordophone-Lute-plucked-fretted (283)
+
+Aerophone-Blow Hole-side-blown flute (217)
+
+Idiophone-Struck-bell-clapper (217)
+
+Idiophone-Shaken-rattle (213)
+
+Related Department: Musical Instruments
+
+## Category 15: Architecture & Space
+What you'll see: Architectural elements, models, fragments, spatial works
+
+Architecture (170)
+
+Ornament & Architecture (354)
+
+Architectural Models (12)
+
+Screens (171)
+
+Frames (560)
+
+Wallpaper (51)
+
+Related Departments: Medieval Art, The Cloisters, European Sculpture and Decorative Arts
+---
+
+FUTURE STEPS!!!
+
+
+STREAM LIT
+
+Then lets design how people will select imputs to view:
+- I'm thinking you could have a giant word bank one for personality and one for mood/vibe. 
+- then the proportion of verbs selected will determine proportion of those styles returned to users.
+- Have the results return the pictures/images of a couple examples.
+
+OPTIONAL 
+- I could add a map of the met muesem using the Is Highlight feature I could point out how many a viewer could see, if met website is well designed you could use department to color code a map? 
+- Thats going to be hard tho... 
+- Check this link out: https://maps.metmuseum.org/?_gl=1%2A15ppzta%2A_gcl_au%2AMjEzNzU2NjAyLjE3NjcxMzc3MTE.%2A_ga%2AMTIxMDAzNzI2Ny4xNzY3MTM3NzEx%2A_ga_Y0W8DGNBTB%2AczE3NjcxMzc3MTAkbzEkZzAkdDE3NjcxMzc3MTUkajU1JGwwJGgw&floor=1&lang=en-GB#17.29/40.779573/-73.963382/-61 
+
