@@ -4,12 +4,9 @@ import numpy as np
 import os
 import requests
 from PIL import Image
-from io import BytesIO
+from io import BytesIO, StringIO
 import random
-# Add this import at the top with your other imports
-import requests
-from io import StringIO
-
+import re
 
 # Page config
 st.set_page_config(
@@ -18,10 +15,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS (keeping your existing CSS)
+# Custom CSS
 st.markdown("""
 <style>
-    /* Your existing CSS here - keeping it the same */
     .stApp {
         background-color: white;
     }
@@ -199,7 +195,7 @@ st.title("🎨 Met Museum Personal Curator")
 st.markdown("Explore art through historical periods, movements, and personal aesthetics - just like a real curator would!")
 
 # ============================================================================
-# STEP 1: Define Art Periods and Movements (Based on your classification)
+# STEP 1: Define Art Periods and Movements
 # ============================================================================
 
 # Ancient Art (Before 800 BCE)
@@ -332,7 +328,7 @@ art_periods = {
 }
 
 # ============================================================================
-# STEP 2: Personality Archetypes (From your original)
+# STEP 2: Personality Archetypes
 # ============================================================================
 
 personality = {
@@ -363,7 +359,7 @@ personality = {
 }
 
 # ============================================================================
-# STEP 3: Moods / Vibes (From your original, enhanced with period connections)
+# STEP 3: Moods / Vibes
 # ============================================================================
 
 moods = {
@@ -398,7 +394,7 @@ moods = {
 }
 
 # ============================================================================
-# STEP 4: Visual Qualities (From your original, enhanced)
+# STEP 4: Visual Qualities
 # ============================================================================
 
 visuals = {
@@ -436,7 +432,10 @@ visuals = {
     }
 }
 
-# Function to parse date strings into approximate years for filtering
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
 def parse_date_to_year(date_str):
     """Attempt to extract a year from various date formats"""
     if pd.isna(date_str) or not isinstance(date_str, str):
@@ -447,7 +446,6 @@ def parse_date_to_year(date_str):
     
     # Handle BCE dates
     if 'bce' in date_str or 'bc' in date_str:
-        # For simplicity, return None for BCE dates (our periods cover them)
         return -1000
     
     # Try to extract century
@@ -456,10 +454,9 @@ def parse_date_to_year(date_str):
         for part in parts:
             if part.isdigit():
                 century = int(part)
-                return (century - 1) * 100 + 50  # Approximate mid-century
+                return (century - 1) * 100 + 50
     
     # Try to find 4-digit years
-    import re
     years = re.findall(r'\b\d{3,4}\b', date_str)
     if years:
         return int(years[0])
@@ -471,7 +468,6 @@ def parse_date_to_year(date_str):
     
     return None
 
-# Function to estimate period from date
 def estimate_period_from_date(date_str):
     """Estimate which art period an artwork belongs to based on its date"""
     year = parse_date_to_year(date_str)
@@ -509,8 +505,11 @@ def display_keywords(keyword_list):
     html += '</div>'
     return html
 
-# Function to get image URL from Met object ID
-@st.cache_data(ttl=3600, show_spinner=False)
+# ============================================================================
+# Data Loading Function (Updated for GitHub)
+# ============================================================================
+
+@st.cache_data(ttl=3600)
 def get_image_url(object_id):
     """Fetch image URL from Met Museum API"""
     try:
@@ -527,8 +526,7 @@ def get_image_url(object_id):
     except:
         return None
 
-# Function to load and cache images
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=3600)
 def load_image_from_url(url):
     """Load image from URL"""
     try:
@@ -541,66 +539,68 @@ def load_image_from_url(url):
         pass
     return None
 
-# Simplified data loading with proper path handling
 @st.cache_data
 def load_data():
+    """Load data from GitHub repository"""
     try:
-        # Use raw string to avoid escape character issues
-        file_path = r"C:\Users\court\Downloads\Data_Clubs_Project_1\archive\MetObjects.csv"
-        
-        # Check if file exists
-        if not os.path.exists(file_path):
-            st.error(f"File not found at: {file_path}")
-            return None
-            
-        # Load only necessary columns to save memory
-        usecols = ['Object ID', 'Title', 'Artist Display Name', 'Object Date', 
-                  'Classification', 'Department', 'Object URL', 'Medium', 'Culture', 'Period']
-        
-        df = pd.read_csv(file_path, usecols=lambda x: x in usecols, low_memory=False, nrows=500000)
-        
-        # Clean up data
-        df = df.replace({np.nan: None})
-        
-        # Add estimated period column
-        with st.spinner("Analyzing artwork dates..."):
-            df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
-        
-        return df
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
-        return None
-
-# Load data
-@st.cache_data
-def load_data_sample(nrows=10000):
-    """Load a sample of data from GitHub for better performance"""
-    try:
+        # GitHub raw URL for your file
         github_url = "https://raw.githubusercontent.com/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
         
-        with st.spinner(f"Loading {nrows:,} artworks from GitHub..."):
-            # Download only the first nrows
-            response = requests.get(github_url, stream=True)
+        with st.spinner("📥 Loading data from GitHub... (this may take a minute)"):
+            # Download the file
+            response = requests.get(github_url, timeout=30)
             response.raise_for_status()
             
-            # Read only first nrows
-            df = pd.read_csv(StringIO(response.text), nrows=nrows, low_memory=False,
-                           usecols=lambda x: x in ['Object ID', 'Title', 'Artist Display Name', 
-                                                  'Object Date', 'Classification', 'Department', 
-                                                  'Object URL', 'Medium', 'Culture', 'Period'])
+            # Load only necessary columns and limit rows for performance
+            usecols = ['Object ID', 'Title', 'Artist Display Name', 'Object Date', 
+                      'Classification', 'Department', 'Object URL', 'Medium', 'Culture', 'Period']
+            
+            # Read the CSV - limit to first 10,000 rows for better performance
+            df = pd.read_csv(StringIO(response.text), 
+                           nrows=10000,  # Limit to 10,000 rows for performance
+                           usecols=lambda x: x in usecols, 
+                           low_memory=False)
+            
+            # Clean up data
+            df = df.replace({np.nan: None})
+            
+            # Add estimated period column
+            with st.spinner("🔍 Analyzing artwork dates..."):
+                df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
+            
+            st.success(f"✅ Successfully loaded {len(df):,} artworks from the Met collection!")
+            return df
+            
+    except requests.exceptions.RequestException as e:
+        st.error(f"❌ Error downloading data from GitHub: {e}")
+        st.info("💡 Trying local file as fallback...")
         
-        # Clean up data
-        df = df.replace({np.nan: None})
+        # Fallback to local file if GitHub fails
+        try:
+            local_path = "MetObjects.csv"
+            if os.path.exists(local_path):
+                df = pd.read_csv(local_path, nrows=10000, low_memory=False,
+                               usecols=lambda x: x in ['Object ID', 'Title', 'Artist Display Name', 
+                                                      'Object Date', 'Classification', 'Department', 
+                                                      'Object URL', 'Medium', 'Culture', 'Period'])
+                df = df.replace({np.nan: None})
+                df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
+                st.success(f"✅ Loaded {len(df):,} artworks from local file")
+                return df
+        except:
+            pass
         
-        # Add estimated period column
-        with st.spinner("Analyzing artwork dates..."):
-            df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
-        
-        return df
-        
-    except Exception as e:
-        st.error(f"Error loading data: {e}")
         return None
+    except Exception as e:
+        st.error(f"❌ Error loading data: {e}")
+        return None
+
+# ============================================================================
+# Main App
+# ============================================================================
+
+# Load data
+df = load_data()
 
 if df is not None:
     # Show basic info in sidebar
@@ -634,16 +634,22 @@ if df is not None:
         num_artworks = st.slider("Number of artworks to display", 3, 18, 9, step=3)
     
     # ============================================================================
-    # NEW: Period Selection First (Following your Step 1)
+    # Period Selection First
     # ============================================================================
     
     st.header("📜 STEP 1: Choose Your Art Historical Period")
     st.markdown("Start by selecting a broad historical period that interests you.")
     
-    period_options = list(art_periods.keys())
+    # Filter period options to only those that have artworks in our dataset
+    available_periods = [p for p in art_periods.keys() 
+                        if p in df['estimated_period'].value_counts().index]
+    
+    if not available_periods:
+        available_periods = list(art_periods.keys())
+    
     selected_period = st.selectbox(
         "Select an art historical period:",
-        period_options,
+        available_periods,
         key="period_select"
     )
     
@@ -672,7 +678,7 @@ if df is not None:
     st.divider()
     
     # ============================================================================
-    # STEP 2: Personality, Mood, Visual Filters (Your original structure)
+    # Personality, Mood, Visual Filters
     # ============================================================================
     
     st.header("🎯 STEP 2: Refine by Personal Aesthetic")
@@ -688,7 +694,6 @@ if df is not None:
             label_visibility="collapsed",
             key="personality_select"
         )
-        # Show keywords for selected personality
         st.markdown("**Related keywords:**")
         st.markdown(display_keywords(personality[personality_choice]["keywords"]), unsafe_allow_html=True)
         
@@ -706,7 +711,6 @@ if df is not None:
             label_visibility="collapsed",
             key="mood_select"
         )
-        # Show keywords for selected mood
         st.markdown("**Related keywords:**")
         st.markdown(display_keywords(moods[mood_choice]["keywords"]), unsafe_allow_html=True)
         
@@ -724,7 +728,6 @@ if df is not None:
             label_visibility="collapsed",
             key="visual_select"
         )
-        # Show keywords for selected visual quality
         st.markdown("**Related keywords:**")
         st.markdown(display_keywords(visuals[visual_choice]["keywords"]), unsafe_allow_html=True)
         
@@ -754,7 +757,6 @@ if df is not None:
                 selected_class = st.multiselect("Filter by Classification", class_counts)
         
         with col6:
-            # Add culture filter if available
             if 'Culture' in df.columns:
                 culture_counts = df['Culture'].value_counts().head(15).index.tolist()
                 selected_culture = st.multiselect("Filter by Culture", culture_counts)
@@ -765,7 +767,7 @@ if df is not None:
     
     filtered_df = df.copy()
     
-    # Apply period filter (this is the key new filter)
+    # Apply period filter
     if selected_period:
         filtered_df = filtered_df[filtered_df['estimated_period'] == selected_period]
     
@@ -797,7 +799,7 @@ if df is not None:
             
             # Try to get artworks with images first if load_images is True
             if load_images:
-                with st.spinner("Loading artwork images..."):
+                with st.spinner("🖼️ Loading artwork images..."):
                     # Take a sample
                     sample_artworks = filtered_df.sample(min(50, len(filtered_df))).copy()
                     
@@ -896,7 +898,7 @@ if df is not None:
                         
                         # Medium
                         medium = artwork.get('Medium', '')
-                        if medium and len(str(medium)) < 50:  # Only show if not too long
+                        if medium and len(str(medium)) < 50:
                             st.markdown(f'<div class="artwork-info">🖌️ {str(medium)[:40]}</div>', unsafe_allow_html=True)
                         
                         # Link
@@ -944,7 +946,7 @@ if df is not None:
             st.markdown("**🔑 Period Keywords:**")
             st.markdown(display_keywords(period_info['keywords']), unsafe_allow_html=True)
             
-            # Show sample artists from this period (from the data)
+            # Show sample artists from this period
             st.markdown("**🎨 Artists from this period in the Met collection:**")
             period_artists = filtered_df['Artist Display Name'].dropna().value_counts().head(10)
             if len(period_artists) > 0:
@@ -959,29 +961,12 @@ if df is not None:
 else:
     st.error("""
     ⚠️ Could not load the data file. Please check:
-    1. The file path is correct
-    2. The file exists at that location
-    3. You have permission to read the file
-    """)
     
-    # Help user find the correct path
-    with st.expander("📁 Need help with the file path?"):
-        st.markdown("""
-        ### Troubleshooting Steps:
-        1. **Check if the file exists** at that location
-        2. **Use raw strings** with `r` prefix for Windows paths: `r"C:\\Users\\court\\Downloads\\..."` 
-        3. **Use forward slashes** instead of backslashes: `"C:/Users/court/Downloads/..."`
-        4. **Try a relative path** if the file is in the same folder as this app
-        
-        Example alternative paths:
-        ```python
-        # Raw string (recommended for Windows)
-        df = pd.read_csv(r"C:\\Users\\court\\Downloads\\Data_Clubs_Project_1\\archive\\MetObjects.csv")
-        
-        # Forward slashes
-        df = pd.read_csv("C:/Users/court/Downloads/Data_Clubs_Project_1/archive/MetObjects.csv")
-        
-        # If file is in the same folder:
-        df = pd.read_csv("MetObjects.csv")
-        ```
-        """)
+    1. Make sure your GitHub repository is public
+    2. The file 'MetObjects.csv' should be in the root of your repository
+    3. The raw GitHub URL should be accessible
+    
+    📁 **Next steps:**
+    - Once you've successfully pushed the file to GitHub with LFS, the app will work
+    - For now, you can also place the file locally in the same folder as this app
+    """)
