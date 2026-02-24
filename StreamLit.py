@@ -515,54 +515,13 @@ def display_keywords(keyword_list):
 # Data Loading Function - Fixed for LFS and error handling
 # ============================================================================
 
-@st.cache_data(ttl=3600)
-def get_image_url(object_id):
-    """Fetch image URL from Met Museum API"""
-    try:
-        if pd.isna(object_id):
-            return None
-        response = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{int(object_id)}", timeout=3)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('primaryImage'):
-                return data['primaryImage']
-            elif data.get('additionalImages') and len(data['additionalImages']) > 0:
-                return data['additionalImages'][0]
-        return None
-    except:
-        return None
-
-@st.cache_data(ttl=3600)
-def load_image_from_url(url):
-    """Load image from URL"""
-    try:
-        if url:
-            response = requests.get(url, timeout=3)
-            if response.status_code == 200:
-                img = Image.open(BytesIO(response.content))
-                return img
-    except:
-        pass
-    return None
-
 @st.cache_data
-def fetch_from_met_api():
-    """Fetch artworks directly from Met API"""
-    # Get list of object IDs
-    response = requests.get("https://collectionapi.metmuseum.org/public/collection/v1/objects")
-    object_ids = response.json()['object_ids'][:100]  # First 100
-    
-    artworks = []
-    for obj_id in object_ids:
-        data = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{obj_id}").json()
-        artworks.append({
-            'Title': data.get('title'),
-            'Artist Display Name': data.get('artistDisplayName'),
-            'Object Date': data.get('objectDate'),
-            # ... other fields
-        })
-    
-    return pd.DataFrame(artworks)
+def load_data():
+    """Load from Hugging Face Datasets"""
+    url = "https://huggingface.co/datasets/your-username/met-museum/raw/main/MetObjects.csv"
+    df = pd.read_csv(url, nrows=5000)
+    # ... rest of processing
+    return df
 
 # ============================================================================
 # Main App
