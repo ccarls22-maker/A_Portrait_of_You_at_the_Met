@@ -187,61 +187,31 @@ st.title("🎨 Met Museum Personal Curator")
 st.markdown("Create your personalized art viewing experience by exploring the Metropolitan Museum of Art's collection through different artistic lenses.")
 
 # Function to get image URL from Met object ID
-@st.cache_data(ttl=3600, show_spinner=False)
-def get_image_url(object_id):
-    """Fetch image URL from Met Museum API"""
-    try:
-        if pd.isna(object_id):
-            return None
-        # Met Museum API endpoint for object
-        response = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{int(object_id)}", timeout=3)
-        if response.status_code == 200:
-            data = response.json()
-            # Check for primary image
-            if data.get('primaryImage'):
-                return data['primaryImage']
-            # Check for additional images
-            elif data.get('additionalImages') and len(data['additionalImages']) > 0:
-                return data['additionalImages'][0]
-        return None
-    except:
-        return None
-
-# Function to load and cache images
-@st.cache_data(ttl=3600, show_spinner=False)
-def load_image_from_url(url):
-    """Load image from URL"""
-    try:
-        if url:
-            response = requests.get(url, timeout=3)
-            if response.status_code == 200:
-                img = Image.open(BytesIO(response.content))
-                return img
-    except:
-        pass
-    return None
-
-# NEW: Load data from GitHub using the API that handles LFS
+# NEW: Load data from GitHub using the correct LFS URL
 @st.cache_data
 def load_data_from_github():
     """Load MetObjects.csv from GitHub repository"""
     try:
-        # Use GitHub's API to get the file content (handles LFS automatically)
-        github_api_url = "https://api.github.com/repos/ccarls22-maker/A_Portrait_of_You_at_the_Met/contents/MetObjects.csv"
-        
-        headers = {
-            "Accept": "application/vnd.github.v3.raw"  # This gets the raw file content, not the LFS pointer
-        }
+        # Use the media.githubusercontent.com URL for LFS files
+        # This is the correct CDN for GitHub LFS
+        github_raw_url = "https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
         
         with st.spinner("Downloading Met Museum collection from GitHub... (this may take a minute)"):
-            response = requests.get(github_api_url, headers=headers, timeout=60)
+            # Download with stream to handle large file
+            response = requests.get(github_raw_url, stream=True, timeout=60)
             response.raise_for_status()
             
+            # Get content length for progress tracking
+            content_length = int(response.headers.get('content-length', 0))
+            if content_length > 0:
+                st.info(f"Downloading {content_length / (1024*1024):.1f} MB file...")
+            
             # Load CSV directly from response content
-            # Limit to first 50,000 rows for performance (adjust as needed)
-            df = pd.read_csv(BytesIO(response.content), 
-                           nrows=50000,  # Adjust this number based on your needs
-                           low_memory=False)
+            # You can adjust nrows to get more artworks
+            df = pd.read_csv(response.raw, 
+                           nrows=50000,  # Increase this for more artworks (e.g., 100000)
+                           low_memory=False,
+                           on_bad_lines='skip')  # Skip any problematic lines
             
             # Keep only necessary columns
             needed_cols = ['Object ID', 'Title', 'Artist Display Name', 'Object Date', 
@@ -249,21 +219,46 @@ def load_data_from_github():
             
             # Filter to only columns that exist
             available_cols = [col for col in needed_cols if col in df.columns]
-            df = df[available_cols]
+            if available_cols:
+                df = df[available_cols]
+            else:
+                # If no matching columns, try to use first few columns
+                st.warning("Column names don't match expected. Using available columns.")
             
             # Clean up data
             df = df.replace({np.nan: None})
             
+            # Drop rows with no title (likely empty)
+            if 'Title' in df.columns:
+                df = df[df['Title'].notna()]
+            
+            st.success(f"✅ Successfully loaded {len(df):,} artworks from GitHub!")
             return df
             
     except requests.exceptions.RequestException as e:
         st.error(f"Error downloading from GitHub: {e}")
-        st.info("Make sure your repository is public and the file exists")
-        return None
+        
+        # Try alternative URL
+        try:
+            st.info("Trying alternative GitHub URL...")
+            alt_url = "https://raw.githubusercontent.com/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
+            response = requests.get(alt_url, timeout=30)
+            response.raise_for_status()
+            
+            df = pd.read_csv(BytesIO(response.content), 
+                           nrows=50000,
+                           low_memory=False,
+                           on_bad_lines='skip')
+            
+            st.success(f"✅ Loaded {len(df):,} artworks from alternative URL!")
+            return df
+        except:
+            st.error("Alternative URL also failed.")
+            return None
     except Exception as e:
         st.error(f"Error loading data: {e}")
         return None
-
+        
 # Load data from GitHub instead of local file
 df = load_data_from_github()
 
