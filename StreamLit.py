@@ -247,9 +247,7 @@ def load_data():
             df = pd.read_csv(BytesIO(response.content), 
                            nrows=100000,  # Load up to 100,000 rows
                            low_memory=False)
-            
-            # Display column names for debugging (can remove later)
-            st.write("Debug - Columns found:", list(df.columns)[:10])
+        
             
             # Check for Object ID column (might be named differently)
             object_id_col = None
