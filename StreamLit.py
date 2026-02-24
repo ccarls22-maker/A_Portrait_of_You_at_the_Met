@@ -509,39 +509,9 @@ def display_keywords(keyword_list):
 # Data Loading Function (Updated for GitHub)
 # ============================================================================
 
-@st.cache_data(ttl=3600)
-def get_image_url(object_id):
-    """Fetch image URL from Met Museum API"""
-    try:
-        if pd.isna(object_id):
-            return None
-        response = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{int(object_id)}", timeout=3)
-        if response.status_code == 200:
-            data = response.json()
-            if data.get('primaryImage'):
-                return data['primaryImage']
-            elif data.get('additionalImages') and len(data['additionalImages']) > 0:
-                return data['additionalImages'][0]
-        return None
-    except:
-        return None
-
-@st.cache_data(ttl=3600)
-def load_image_from_url(url):
-    """Load image from URL"""
-    try:
-        if url:
-            response = requests.get(url, timeout=3)
-            if response.status_code == 200:
-                img = Image.open(BytesIO(response.content))
-                return img
-    except:
-        pass
-    return None
-
 @st.cache_data
 def load_data():
-    """Load data from GitHub repository"""
+    """Load data from GitHub repository with better column handling"""
     try:
         # GitHub raw URL for your file
         github_url = "https://raw.githubusercontent.com/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
@@ -551,45 +521,68 @@ def load_data():
             response = requests.get(github_url, timeout=30)
             response.raise_for_status()
             
-            # Load only necessary columns and limit rows for performance
-            usecols = ['Object ID', 'Title', 'Artist Display Name', 'Object Date', 
-                      'Classification', 'Department', 'Object URL', 'Medium', 'Culture', 'Period']
+            # First, read just the header to check column names
+            header = pd.read_csv(StringIO(response.text), nrows=0)
+            st.write("Debug - Available columns:", list(header.columns))  # This will help us see the actual column names
             
-            # Read the CSV - limit to first 10,000 rows for better performance
+            # Define possible column name variations
+            column_mappings = {
+                'Object ID': ['Object ID', 'object id', 'ObjectID', 'object_id'],
+                'Title': ['Title', 'title', 'Object Title', 'object title'],
+                'Artist Display Name': ['Artist Display Name', 'artist display name', 'Artist', 'artist', 'Artist Name'],
+                'Object Date': ['Object Date', 'object date', 'Date', 'date', 'ObjectDate'],
+                'Classification': ['Classification', 'classification', 'Class', 'class'],
+                'Department': ['Department', 'department', 'Dept', 'dept'],
+                'Object URL': ['Object URL', 'object url', 'URL', 'url', 'Link'],
+                'Medium': ['Medium', 'medium'],
+                'Culture': ['Culture', 'culture'],
+                'Period': ['Period', 'period']
+            }
+            
+            # Find actual column names in the dataset
+            actual_columns = {}
+            for standard_name, possible_names in column_mappings.items():
+                for possible_name in possible_names:
+                    if possible_name in header.columns:
+                        actual_columns[standard_name] = possible_name
+                        break
+            
+            st.write("Debug - Found columns:", actual_columns)  # This shows what we found
+            
+            if not actual_columns:
+                st.error("Could not find expected columns in the CSV file")
+                return None
+            
+            # Read the CSV with the actual column names
+            usecols = list(actual_columns.values())
+            
+            # Read the CSV - limit to first 10,000 rows for performance
             df = pd.read_csv(StringIO(response.text), 
-                           nrows=10000,  # Limit to 10,000 rows for performance
-                           usecols=lambda x: x in usecols, 
+                           nrows=10000,
+                           usecols=usecols,
                            low_memory=False)
+            
+            # Rename columns to standard names
+            rename_dict = {v: k for k, v in actual_columns.items()}
+            df = df.rename(columns=rename_dict)
             
             # Clean up data
             df = df.replace({np.nan: None})
             
-            # Add estimated period column
-            with st.spinner("🔍 Analyzing artwork dates..."):
-                df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
+            # Check if Object Date exists before using it
+            if 'Object Date' in df.columns:
+                # Add estimated period column
+                with st.spinner("🔍 Analyzing artwork dates..."):
+                    df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
+            else:
+                st.warning("No date column found. Period estimation will not be available.")
+                df['estimated_period'] = "Unknown"
             
             st.success(f"✅ Successfully loaded {len(df):,} artworks from the Met collection!")
             return df
             
     except requests.exceptions.RequestException as e:
         st.error(f"❌ Error downloading data from GitHub: {e}")
-        st.info("💡 Trying local file as fallback...")
-        
-        # Fallback to local file if GitHub fails
-        try:
-            local_path = "MetObjects.csv"
-            if os.path.exists(local_path):
-                df = pd.read_csv(local_path, nrows=10000, low_memory=False,
-                               usecols=lambda x: x in ['Object ID', 'Title', 'Artist Display Name', 
-                                                      'Object Date', 'Classification', 'Department', 
-                                                      'Object URL', 'Medium', 'Culture', 'Period'])
-                df = df.replace({np.nan: None})
-                df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
-                st.success(f"✅ Loaded {len(df):,} artworks from local file")
-                return df
-        except:
-            pass
-        
         return None
     except Exception as e:
         st.error(f"❌ Error loading data: {e}")
