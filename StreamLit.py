@@ -1,15 +1,11 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import os
 import requests
 from PIL import Image
-from io import BytesIO, StringIO
-import random
+from io import BytesIO
 import re
-import base64
-
-
+import time
 
 # Page config
 st.set_page_config(
@@ -18,10 +14,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS (keep your existing CSS here)
+# Custom CSS
 st.markdown("""
 <style>
-    /* Your existing CSS - keep it exactly as you had it */
     .stApp {
         background-color: white;
     }
@@ -49,51 +44,7 @@ st.markdown("""
         color: #1E1E1E !important;
     }
     
-    section[data-testid="stSidebar"] .stCheckbox label,
-    section[data-testid="stSidebar"] .stSlider label,
-    section[data-testid="stSidebar"] .stSelectbox label {
-        color: #1E1E1E !important;
-    }
-    
-    section[data-testid="stSidebar"] [data-testid="stMetricLabel"] p,
-    section[data-testid="stSidebar"] [data-testid="stMetricValue"] p {
-        color: #1E1E1E !important;
-    }
-    
-    section[data-testid="stSidebar"] .streamlit-expanderHeader {
-        color: #1E1E1E !important;
-        background-color: white !important;
-    }
-    
     .stMarkdown, .stText, p, h1, h2, h3, h4, h5, h6 {
-        color: #1E1E1E !important;
-    }
-    
-    [data-testid="stMetricLabel"] p, [data-testid="stMetricValue"] p {
-        color: #1E1E1E !important;
-    }
-    
-    .stSelectbox label, .stSelectbox div[data-baseweb="select"] span {
-        color: #1E1E1E !important;
-    }
-    
-    .stMultiSelect label, .stMultiSelect div[data-baseweb="select"] span {
-        color: #1E1E1E !important;
-    }
-    
-    .stSlider label, .stSlider span {
-        color: #1E1E1E !important;
-    }
-    
-    .streamlit-expanderHeader {
-        color: #1E1E1E !important;
-    }
-    
-    .stTabs [data-baseweb="tab-list"] button p {
-        color: #1E1E1E !important;
-    }
-    
-    .stAlert p {
         color: #1E1E1E !important;
     }
     
@@ -127,6 +78,8 @@ st.markdown("""
         background-color: white;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         height: 100%;
+        display: flex;
+        flex-direction: column;
     }
     .artwork-title {
         font-size: 1.1em;
@@ -140,13 +93,15 @@ st.markdown("""
         align-items: center;
         margin: 10px 0;
         min-height: 200px;
+        max-height: 250px;
         background-color: #f8f9fa;
         border-radius: 5px;
         padding: 5px;
+        overflow: hidden;
     }
     .artwork-image {
         max-width: 100%;
-        max-height: 250px;
+        max-height: 100%;
         object-fit: contain;
         border-radius: 3px;
     }
@@ -199,64 +154,27 @@ st.title("🎨 Met Museum Personal Curator")
 st.markdown("Explore art through historical periods, movements, and personal aesthetics - just like a real curator would!")
 
 # ============================================================================
-# STEP 1: Define Art Periods and Movements
+# Art Periods and Movements
 # ============================================================================
 
-# Ancient Art (Before 800 BCE)
-ancient_keywords = ["sacred", "ritual", "afterlife", "ruler", "power", "foundational", "mythological", "hieratic", "ceremonial"]
-
-# Greek/Roman: 800 BCE - 400 CE
-greek_roman_keywords = ["idealized", "perfected form", "humanism", "civic", "realism", "portraiture", "mythology", "marble", "bronze", "proportion", "contrapposto", "drapery", "classical"]
-
-# Medieval: 400 - 1350
-medieval_keywords = ["glory of god", "religious", "symbolism", "hierarchy", "flat", "gold leaf", "illumination", "manuscript", "gothic", "romanesque", "byzantine", "icon", "devotional", "heavenly"]
-
-# Renaissance: 1350 - 1600
-renaissance_keywords = ["humanism", "perspective", "scientific", "individual", "classical", "naturalism", "anatomy", "sfumato", "chiaroscuro", "idealized", "realistic", "three-dimensional", "genius"]
-
-# Baroque: 1600 - 1750
-baroque_keywords = ["drama", "tension", "grandeur", "theatrical", "tenebrism", "movement", "emotional", "sensuous", "ornate", "diagonal", "intense", "dynamic", "exuberant"]
-
-# Rococo: 1720-1760 (Late Baroque)
-rococo_keywords = ["playful", "decorative", "pastel", "intimate", "romantic", "curvilinear", "ornate", "charming", "aristocratic", "frivolous", "light-hearted", "amorous"]
-
-# Neoclassical: 1750 - 1800
-neoclassical_keywords = ["civic virtue", "logic", "order", "moral", "linear", "restrained", "archaeological", "heroic", "patriotic", "didactic", "clean lines", "simplicity"]
-
-# Romantic: 1800 - 1865
-romantic_keywords = ["emotion", "sublime", "individual", "dramatic", "untamed nature", "exotic", "medieval", "imaginative", "rebellion", "passion", "awe-inspiring", "moody"]
-
-# Impressionism: 1865 - 1885
-impressionism_keywords = ["fleeting", "light", "en plein air", "modern life", "sensory", "spontaneous", "visible brushstroke", "color", "atmosphere", "leisure", "urban", "moment"]
-
-# Post-Impressionism: 1885 - 1910
-post_impressionism_keywords = ["symbolic color", "structural", "emotional", "personal", "expressive", "simplified form", "outline", "subjective", "psychological", "intense color"]
-
-# Modern: 1910 - 1960
-modern_keywords = ["experimental", "abstraction", "rejection", "fragmented", "multiple perspectives", "simultaneity", "unconscious", "machines", "speed", "geometric", "non-representational"]
-
-# Contemporary: 1960 - Now
-contemporary_keywords = ["conceptual", "identity", "globalization", "appropriation", "installation", "performance", "mixed media", "political", "critical", "boundaries", "viewer participation"]
-
-# Create a comprehensive period dictionary
 art_periods = {
     "Ancient (Before 800 BCE)": {
         "years": "Before 800 BCE",
-        "keywords": ancient_keywords,
+        "keywords": ["sacred", "ritual", "afterlife", "ruler", "power", "foundational", "mythological"],
         "personality_matches": ["Symbolist", "Classicist"],
         "mood_matches": ["Muted & Naturalistic", "The Inner World"],
         "description": "Sacred ritual, power of rulers, the afterlife, foundational storytelling"
     },
     "Greek/Roman (800 BCE - 400 CE)": {
         "years": "800 BCE - 400 CE",
-        "keywords": greek_roman_keywords,
+        "keywords": ["idealized", "perfected form", "humanism", "civic", "realism", "mythology", "marble", "classical"],
         "personality_matches": ["Classicist", "Realist"],
         "mood_matches": ["Calm & Balanced", "Smooth & Polished"],
         "description": "Human idealism (Greek), civic power & realism (Roman), mythology, perfected form"
     },
     "Medieval (400 - 1350)": {
         "years": "400 - 1350 CE",
-        "keywords": medieval_keywords,
+        "keywords": ["religious", "symbolism", "gold leaf", "gothic", "byzantine", "devotional"],
         "personality_matches": ["Symbolist", "Romantic"],
         "mood_matches": ["The Inner World", "Ornate & Decorative"],
         "description": "The glory of God, religious narrative, hierarchy over realism, symbolism",
@@ -264,7 +182,7 @@ art_periods = {
     },
     "Renaissance (1350 - 1600)": {
         "years": "1350 - 1600",
-        "keywords": renaissance_keywords,
+        "keywords": ["humanism", "perspective", "scientific", "individual", "classical", "anatomy", "sfumato"],
         "personality_matches": ["Classicist", "Innovator"],
         "mood_matches": ["Calm & Balanced", "The Human Figure", "Smooth & Polished"],
         "description": "Humanism, rediscovery of classical art, scientific perspective, individual genius",
@@ -272,42 +190,42 @@ art_periods = {
     },
     "Baroque (1600 - 1750)": {
         "years": "1600 - 1750",
-        "keywords": baroque_keywords,
+        "keywords": ["drama", "tension", "grandeur", "theatrical", "movement", "emotional", "ornate"],
         "personality_matches": ["Romantic", "Hedonist"],
         "mood_matches": ["Dynamic & Dramatic", "Warm & Golden", "Ornate & Decorative"],
         "description": "Drama, tension, grandeur, theatrical light, engaging the senses"
     },
     "Rococo (1720 - 1760)": {
         "years": "1720 - 1760",
-        "keywords": rococo_keywords,
+        "keywords": ["playful", "decorative", "pastel", "intimate", "romantic", "curvilinear", "charming"],
         "personality_matches": ["Hedonist", "Romantic"],
         "mood_matches": ["Ornate & Decorative", "Warm & Golden", "The Human Figure"],
         "description": "Playful, decorative, intimate, aristocratic pleasure"
     },
     "Neoclassical (1750 - 1800)": {
         "years": "1750 - 1800",
-        "keywords": neoclassical_keywords,
+        "keywords": ["civic virtue", "logic", "order", "moral", "restrained", "heroic", "simplicity"],
         "personality_matches": ["Classicist", "Realist"],
         "mood_matches": ["Calm & Balanced", "Smooth & Polished", "The Human Figure"],
         "description": "Civic virtue, logic, order, classical models from Ancient Greece/Rome"
     },
     "Romantic (1800 - 1865)": {
         "years": "1800 - 1865",
-        "keywords": romantic_keywords,
+        "keywords": ["emotion", "sublime", "individual", "dramatic", "nature", "imaginative", "passion"],
         "personality_matches": ["Romantic", "Symbolist"],
         "mood_matches": ["Dynamic & Dramatic", "Nature & Landscape", "Cool & Ethereal"],
         "description": "Emotion, the sublime in nature, individualism, dramatic rebellion"
     },
     "Impressionism (1865 - 1885)": {
         "years": "1865 - 1885",
-        "keywords": impressionism_keywords,
+        "keywords": ["fleeting", "light", "en plein air", "modern life", "spontaneous", "color", "atmosphere"],
         "personality_matches": ["Hedonist", "Realist"],
         "mood_matches": ["Vibrant & Unnatural", "Textured & Painterly", "Urban & Modern Life"],
         "description": "Modern life, fleeting light, sensory impression, painting en plein air"
     },
     "Post-Impressionism (1885 - 1910)": {
         "years": "1885 - 1910",
-        "keywords": post_impressionism_keywords,
+        "keywords": ["symbolic color", "structural", "emotional", "personal", "expressive", "subjective"],
         "personality_matches": ["Innovator", "Romantic"],
         "mood_matches": ["Vibrant & Unnatural", "Textured & Painterly", "The Inner World"],
         "description": "Symbolic color, structural form, emotional and personal expression",
@@ -315,7 +233,7 @@ art_periods = {
     },
     "Modern (1910 - 1960)": {
         "years": "1910 - 1960",
-        "keywords": modern_keywords,
+        "keywords": ["experimental", "abstraction", "fragmented", "unconscious", "geometric", "non-representational"],
         "personality_matches": ["Innovator", "Symbolist"],
         "mood_matches": ["Chaotic & Raw", "The Abstract Idea", "Vibrant & Unnatural"],
         "description": "Experimentation, abstraction, rejecting tradition, art about art itself",
@@ -323,7 +241,7 @@ art_periods = {
     },
     "Contemporary (1960 - Now)": {
         "years": "1960 - Present",
-        "keywords": contemporary_keywords,
+        "keywords": ["conceptual", "identity", "globalization", "installation", "performance", "mixed media", "political"],
         "personality_matches": ["Innovator", "Realist"],
         "mood_matches": ["The Abstract Idea", "Urban & Modern Life", "Chaotic & Raw"],
         "description": "Conceptualism, identity politics, globalization, questioning boundaries",
@@ -332,106 +250,106 @@ art_periods = {
 }
 
 # ============================================================================
-# STEP 2: Personality Archetypes
+# Personality Archetypes
 # ============================================================================
 
 personality = {
     "Classicist": {
-        "keywords": ["order", "balance", "clarity", "timeless", "harmony", "symmetry", "ideal", "perfection", "restraint", "tradition", "proportion", "discipline", "rational", "structured"],
+        "keywords": ["order", "balance", "clarity", "timeless", "harmony", "symmetry", "ideal", "perfection", "restraint", "tradition", "proportion"],
         "period_matches": ["Greek/Roman (800 BCE - 400 CE)", "Renaissance (1350 - 1600)", "Neoclassical (1750 - 1800)"]
     },
     "Romantic": {
-        "keywords": ["emotion", "imagination", "mystery", "nature", "passion", "drama", "sublime", "intuition", "wild", "longing", "intensity", "fantasy", "awe", "turbulence", "poetic"],
+        "keywords": ["emotion", "imagination", "mystery", "nature", "passion", "drama", "sublime", "intuition", "wild", "longing", "intensity"],
         "period_matches": ["Romantic (1800 - 1865)", "Baroque (1600 - 1750)", "Medieval (400 - 1350)", "Rococo (1720 - 1760)"]
     },
     "Realist": {
-        "keywords": ["truth", "authenticity", "grounded", "pragmatic", "observation", "unvarnished", "direct", "honest", "everyday", "ordinary", "candid", "objective", "documentary"],
+        "keywords": ["truth", "authenticity", "grounded", "pragmatic", "observation", "honest", "everyday", "ordinary", "candid", "objective"],
         "period_matches": ["Greek/Roman (800 BCE - 400 CE)", "Impressionism (1865 - 1885)", "Contemporary (1960 - Now)"]
     },
     "Innovator": {
-        "keywords": ["experimental", "abstract", "intellectual", "bold", "unconventional", "avant-garde", "radical", "new", "inventive", "conceptual", "challenging", "progressive", "pioneering"],
+        "keywords": ["experimental", "abstract", "intellectual", "bold", "unconventional", "avant-garde", "radical", "new", "inventive", "conceptual"],
         "period_matches": ["Modern (1910 - 1960)", "Contemporary (1960 - Now)", "Post-Impressionism (1885 - 1910)", "Renaissance (1350 - 1600)"]
     },
     "Symbolist": {
-        "keywords": ["metaphor", "spiritual", "dream", "mystical", "hidden", "coded", "visionary", "esoteric", "subconscious", "otherworldly", "enigmatic", "poetic", "mythic"],
+        "keywords": ["metaphor", "spiritual", "dream", "mystical", "hidden", "coded", "visionary", "subconscious", "otherworldly", "enigmatic"],
         "period_matches": ["Medieval (400 - 1350)", "Romantic (1800 - 1865)", "Ancient (Before 800 BCE)", "Post-Impressionism (1885 - 1910)"]
     },
     "Hedonist": {
-        "keywords": ["sensual", "decorative", "pleasure", "beauty", "elegance", "ornate", "lush", "indulgent", "playful", "charming", "delightful", "opulent", "graceful", "sumptuous"],
+        "keywords": ["sensual", "decorative", "pleasure", "beauty", "elegance", "ornate", "lush", "indulgent", "playful", "charming", "opulent"],
         "period_matches": ["Rococo (1720 - 1760)", "Impressionism (1865 - 1885)", "Baroque (1600 - 1750)"]
     }
 }
 
 # ============================================================================
-# STEP 3: Moods / Vibes
+# Moods / Vibes
 # ============================================================================
 
 moods = {
     "Dynamic & Dramatic": {
-        "keywords": ["energetic", "intense", "theatrical", "bold", "movement", "action", "contrast", "explosive", "vigorous", "lively", "forceful", "passionate"],
+        "keywords": ["energetic", "intense", "theatrical", "bold", "movement", "action", "contrast", "explosive", "vigorous", "lively"],
         "period_matches": ["Baroque (1600 - 1750)", "Romantic (1800 - 1865)", "Modern (1910 - 1960)"]
     },
     "Calm & Balanced": {
-        "keywords": ["serene", "peaceful", "tranquil", "restful", "meditative", "gentle", "soothing", "harmonious", "quiet", "still", "composed", "poised"],
+        "keywords": ["serene", "peaceful", "tranquil", "restful", "meditative", "gentle", "soothing", "harmonious", "quiet", "still"],
         "period_matches": ["Renaissance (1350 - 1600)", "Neoclassical (1750 - 1800)", "Greek/Roman (800 BCE - 400 CE)"]
     },
     "Chaotic & Raw": {
-        "keywords": ["fragmented", "wild", "unrestrained", "expressive", "rough", "spontaneous", "turbulent", "primal", "visceral", "untamed", "emotional", "jagged"],
+        "keywords": ["fragmented", "wild", "unrestrained", "expressive", "rough", "spontaneous", "turbulent", "primal", "visceral", "emotional"],
         "period_matches": ["Modern (1910 - 1960)", "Expressionism", "Abstract Expressionism"]
     },
     "Warm & Golden": {
-        "keywords": ["radiant", "glowing", "sunlit", "rich", "golden", "fiery", "warm", "amber", "luminous", "vibrant", "passionate", "cozy"],
+        "keywords": ["radiant", "glowing", "sunlit", "rich", "golden", "fiery", "warm", "amber", "luminous", "vibrant"],
         "period_matches": ["Renaissance (1350 - 1600)", "Baroque (1600 - 1750)", "Medieval (400 - 1350)"]
     },
     "Cool & Ethereal": {
-        "keywords": ["icy", "silvery", "misty", "pale", "delicate", "airy", "dreamy", "soft", "ghostly", "tranquil", "celestial", "serene"],
+        "keywords": ["icy", "silvery", "misty", "pale", "delicate", "airy", "dreamy", "soft", "ghostly", "tranquil", "celestial"],
         "period_matches": ["Gothic", "Romantic (1800 - 1865)", "Symbolism"]
     },
     "Vibrant & Unnatural": {
-        "keywords": ["electric", "neon", "saturated", "bold", "artificial", "psychedelic", "pop", "striking", "flamboyant", "unconventional", "vivid", "dazzling"],
+        "keywords": ["electric", "neon", "saturated", "bold", "artificial", "psychedelic", "pop", "striking", "flamboyant", "vivid"],
         "period_matches": ["Fauvism", "Pop Art", "Post-Impressionism (1885 - 1910)"]
     },
     "Muted & Naturalistic": {
-        "keywords": ["earthy", "subdued", "soft", "gentle", "realistic", "understated", "organic", "subtle", "quiet", "neutral", "faded", "mellow"],
+        "keywords": ["earthy", "subdued", "soft", "gentle", "realistic", "understated", "organic", "subtle", "quiet", "neutral", "mellow"],
         "period_matches": ["Realism", "Dutch Golden Age", "Ancient (Before 800 BCE)"]
     }
 }
 
 # ============================================================================
-# STEP 4: Visual Qualities
+# Visual Qualities
 # ============================================================================
 
 visuals = {
     "The Human Figure": {
-        "keywords": ["idealized", "expressive", "deconstructed", "portrait", "body", "anatomy", "gesture", "character", "identity", "emotion", "narrative"],
+        "keywords": ["idealized", "expressive", "deconstructed", "portrait", "body", "anatomy", "gesture", "character", "identity", "emotion"],
         "period_matches": ["Greek/Roman (800 BCE - 400 CE)", "Renaissance (1350 - 1600)", "Expressionism", "Cubism"]
     },
     "Nature & Landscape": {
-        "keywords": ["sublime", "pastoral", "wild", "scientific", "botanical", "atmospheric", "scenic", "rural", "natural", "expansive", "tranquil", "dramatic"],
+        "keywords": ["sublime", "pastoral", "wild", "scientific", "botanical", "atmospheric", "scenic", "rural", "natural", "expansive"],
         "period_matches": ["Romantic (1800 - 1865)", "Impressionism (1865 - 1885)", "Hudson River School"]
     },
     "The Inner World": {
-        "keywords": ["dreamlike", "subconscious", "visionary", "surreal", "symbolic", "psychological", "spiritual", "introspective", "mysterious", "fantastical", "meditative"],
+        "keywords": ["dreamlike", "subconscious", "visionary", "surreal", "symbolic", "psychological", "spiritual", "introspective", "mysterious", "fantastical"],
         "period_matches": ["Surrealism", "Symbolism", "Medieval (400 - 1350)"]
     },
     "Urban & Modern Life": {
-        "keywords": ["city", "technology", "industrial", "social", "leisure", "critique", "modernity", "bustle", "architecture", "crowd", "nightlife", "contemporary"],
+        "keywords": ["city", "technology", "industrial", "social", "leisure", "critique", "modernity", "bustle", "architecture", "crowd"],
         "period_matches": ["Impressionism (1865 - 1885)", "Ashcan School", "Futurism", "Pop Art"]
     },
     "The Abstract Idea": {
-        "keywords": ["form", "color", "geometry", "conceptual", "minimal", "pure", "reduction", "structure", "pattern", "nonrepresentational", "experimental"],
+        "keywords": ["form", "color", "geometry", "conceptual", "minimal", "pure", "reduction", "structure", "pattern", "nonrepresentational"],
         "period_matches": ["Abstract Expressionism", "Minimalism", "Conceptual Art", "Modern (1910 - 1960)"]
     },
     "Smooth & Polished": {
-        "keywords": ["flawless", "marble", "glazed", "refined", "sleek", "seamless", "glossy", "finished", "perfect", "elegant", "pristine"],
+        "keywords": ["flawless", "marble", "glazed", "refined", "sleek", "seamless", "glossy", "finished", "perfect", "elegant"],
         "period_matches": ["Greek/Roman (800 BCE - 400 CE)", "Renaissance (1350 - 1600)", "Neoclassical (1750 - 1800)"]
     },
     "Textured & Painterly": {
-        "keywords": ["impasto", "brushwork", "rough", "tactile", "layered", "expressive", "visible", "raw", "dynamic", "gestural", "thick", "lively"],
+        "keywords": ["impasto", "brushwork", "rough", "tactile", "layered", "expressive", "visible", "raw", "dynamic", "gestural"],
         "period_matches": ["Impressionism (1865 - 1885)", "Post-Impressionism (1885 - 1910)", "Abstract Expressionism"]
     },
     "Ornate & Decorative": {
-        "keywords": ["intricate", "patterned", "detailed", "gilded", "embellished", "curvilinear", "lavish", "baroque", "rococo", "filigree", "ornamental"],
+        "keywords": ["intricate", "patterned", "detailed", "gilded", "embellished", "curvilinear", "lavish", "baroque", "rococo", "ornamental"],
         "period_matches": ["Rococo (1720 - 1760)", "Baroque (1600 - 1750)", "Art Nouveau", "Gothic"]
     }
 }
@@ -445,30 +363,16 @@ def parse_date_to_year(date_str):
     if pd.isna(date_str) or not isinstance(date_str, str):
         return None
     
-    # Remove common text and try to find numbers
     date_str = str(date_str).lower()
     
     # Handle BCE dates
     if 'bce' in date_str or 'bc' in date_str:
         return -1000
     
-    # Try to extract century
-    if 'century' in date_str:
-        parts = date_str.split()
-        for part in parts:
-            if part.isdigit():
-                century = int(part)
-                return (century - 1) * 100 + 50
-    
     # Try to find 4-digit years
     years = re.findall(r'\b\d{3,4}\b', date_str)
     if years:
         return int(years[0])
-    
-    # Try to find ranges like "c. 1500" or "ca. 1500"
-    c_match = re.search(r'c\.?\s*(\d{3,4})', date_str)
-    if c_match:
-        return int(c_match.group(1))
     
     return None
 
@@ -487,8 +391,6 @@ def estimate_period_from_date(date_str):
     elif year < 1600:
         return "Renaissance (1350 - 1600)"
     elif year < 1750:
-        if 1720 <= year <= 1760:
-            return "Rococo (1720 - 1760)"
         return "Baroque (1600 - 1750)"
     elif year < 1800:
         return "Neoclassical (1750 - 1800)"
@@ -506,439 +408,264 @@ def estimate_period_from_date(date_str):
 def display_keywords(keyword_list):
     """Display keywords as styled tags"""
     html = '<div class="word-cloud">'
-    for keyword in keyword_list[:15]:  # Limit to 15 keywords
+    for keyword in keyword_list[:12]:
         html += f'<span class="keyword-tag">{keyword}</span>'
     html += '</div>'
     return html
 
 # ============================================================================
-# Data Loading Function - Fixed for LFS and error handling
+# Data Loading from Met API
 # ============================================================================
 
-@st.cache_data
-def load_data():
-    """Simplified test version to debug API access"""
-    
-    # Create a placeholder for any errors
-    error_messages = []
-    
-    # Test 1: Basic internet connection
+@st.cache_data(ttl=3600)
+def load_image(url):
+    """Load image from URL"""
     try:
-        test_response = requests.get("https://api.github.com", timeout=5)
-        st.write("✅ GitHub API is reachable")
-    except Exception as e:
-        error_messages.append(f"GitHub API unreachable: {str(e)}")
-        st.write(f"❌ GitHub API unreachable: {str(e)}")
+        if url:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 200:
+                return Image.open(BytesIO(response.content))
+    except:
+        pass
+    return None
+
+@st.cache_data(ttl=86400)  # Cache for 24 hours
+def load_met_data(num_objects=500):
+    """Load data directly from Met Museum API"""
     
-    # Test 2: Try to access your repository
-    try:
-        repo_url = "https://api.github.com/repos/ccarls22-maker/A_Portrait_of_You_at_the_Met"
-        repo_response = requests.get(repo_url, timeout=5)
-        st.write(f"✅ Repository accessible (status: {repo_response.status_code})")
-    except Exception as e:
-        error_messages.append(f"Repository unreachable: {str(e)}")
-        st.write(f"❌ Repository unreachable: {str(e)}")
-    
-    # Test 3: Try to get the file info
-    try:
-        file_url = "https://api.github.com/repos/ccarls22-maker/A_Portrait_of_You_at_the_Met/contents/MetObjects.csv"
-        file_response = requests.get(file_url, timeout=5)
-        st.write(f"✅ File info accessible (status: {file_response.status_code})")
-        
-        if file_response.status_code == 200:
-            file_data = file_response.json()
-            st.write(f"File size: {file_data.get('size', 'unknown')} bytes")
-            st.write(f"File type: {file_data.get('type', 'unknown')}")
+    with st.spinner(f"🎨 Fetching {num_objects} artworks from the Met Museum API..."):
+        try:
+            # First, get list of object IDs that have images
+            response = requests.get(
+                "https://collectionapi.metmuseum.org/public/collection/v1/search",
+                params={
+                    "hasImages": True,
+                    "q": "*"  # Search everything
+                },
+                timeout=10
+            )
+            response.raise_for_status()
+            data = response.json()
             
-            # Check if it's an LFS file
-            if file_data.get('size', 0) < 1000:  # Small file might be LFS pointer
-                st.write("⚠️ This appears to be an LFS pointer file")
-                # Try to get the actual content
-                download_url = file_data.get('download_url')
-                if download_url:
-                    st.write(f"Download URL: {download_url}")
-                    content_response = requests.get(download_url, timeout=10)
-                    st.write(f"Content download status: {content_response.status_code}")
-                    if content_response.status_code == 200:
-                        preview = content_response.text[:200]
-                        st.write(f"Content preview: {preview}")
-    except Exception as e:
-        error_messages.append(f"File info failed: {str(e)}")
-        st.write(f"❌ File info failed: {str(e)}")
-    
-    # Test 4: Try the raw GitHub URL
-    try:
-        raw_url = "https://raw.githubusercontent.com/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
-        raw_response = requests.get(raw_url, timeout=5)
-        st.write(f"✅ Raw URL accessible (status: {raw_response.status_code})")
-        if raw_response.status_code == 200:
-            preview = raw_response.text[:200]
-            st.write(f"Raw content preview: {preview}")
-    except Exception as e:
-        error_messages.append(f"Raw URL failed: {str(e)}")
-        st.write(f"❌ Raw URL failed: {str(e)}")
-    
-    # Test 5: Try the media CDN URL
-    try:
-        cdn_url = "https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
-        cdn_response = requests.get(cdn_url, timeout=5)
-        st.write(f"✅ CDN URL accessible (status: {cdn_response.status_code})")
-        if cdn_response.status_code == 200:
-            preview = cdn_response.text[:200]
-            st.write(f"CDN content preview: {preview}")
-    except Exception as e:
-        error_messages.append(f"CDN URL failed: {str(e)}")
-        st.write(f"❌ CDN URL failed: {str(e)}")
-    
-    # Show all errors if any
-    if error_messages:
-        st.error("Errors encountered:")
-        for msg in error_messages:
-            st.error(msg)
-        st.stop()
-    
-    # If we get here, try to actually load the data
-    st.info("Attempting to load actual data...")
-    
-    try:
-        # Try CDN first
-        cdn_url = "https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
-        df = pd.read_csv(cdn_url, nrows=100, low_memory=False)  # Just 100 rows for testing
-        st.success(f"✅ Successfully loaded {len(df)} rows!")
-        st.write("Columns found:", list(df.columns))
-        return df
-    except Exception as e:
-        st.error(f"Failed to load data: {str(e)}")
-        st.stop()
+            object_ids = data.get('objectIDs', [])
+            if not object_ids:
+                st.error("No objects found from API")
+                return None
+            
+            # Limit to requested number
+            object_ids = object_ids[:num_objects]
+            
+            # Create progress bar
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            # Fetch details for each object
+            artworks = []
+            for i, obj_id in enumerate(object_ids):
+                status_text.text(f"Fetching artwork {i+1} of {len(object_ids)}...")
+                
+                try:
+                    obj_response = requests.get(
+                        f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{obj_id}",
+                        timeout=5
+                    )
+                    if obj_response.status_code == 200:
+                        obj_data = obj_response.json()
+                        
+                        # Only include if it has an image
+                        if obj_data.get('primaryImage'):
+                            artworks.append({
+                                'Object ID': obj_id,
+                                'Title': obj_data.get('title', 'Untitled'),
+                                'Artist Display Name': obj_data.get('artistDisplayName', 'Unknown'),
+                                'Artist Nationality': obj_data.get('artistNationality', ''),
+                                'Artist Begin Date': obj_data.get('artistBeginDate', ''),
+                                'Artist End Date': obj_data.get('artistEndDate', ''),
+                                'Object Date': obj_data.get('objectDate', ''),
+                                'Object Begin Date': obj_data.get('objectBeginDate', 0),
+                                'Object End Date': obj_data.get('objectEndDate', 0),
+                                'Medium': obj_data.get('medium', ''),
+                                'Dimensions': obj_data.get('dimensions', ''),
+                                'Classification': obj_data.get('classification', ''),
+                                'Department': obj_data.get('department', ''),
+                                'Culture': obj_data.get('culture', ''),
+                                'Period': obj_data.get('period', ''),
+                                'Object URL': obj_data.get('objectURL', ''),
+                                'Image URL': obj_data.get('primaryImage', '')
+                            })
+                except:
+                    continue
+                
+                # Update progress
+                progress_bar.progress((i + 1) / len(object_ids))
+            
+            progress_bar.empty()
+            status_text.empty()
+            
+            if artworks:
+                df = pd.DataFrame(artworks)
+                
+                # Add estimated period
+                df['estimated_period'] = df['Object Date'].apply(estimate_period_from_date)
+                
+                st.success(f"✅ Successfully loaded {len(df)} artworks with images from the Met Museum!")
+                return df
+            else:
+                st.error("No artworks could be loaded")
+                return None
+                
+        except Exception as e:
+            st.error(f"Error loading from Met API: {e}")
+            return None
 
-# Temporarily comment out your existing code after load_data() and just run the test
-# Add this right after your load_data() function:
-
-st.write("## Testing Data Loading")
-df = load_data()
+# Load the data
+df = load_met_data(num_objects=300)  # Start with 300 artworks
 
 if df is not None:
-    st.write("## Data Preview")
-    st.dataframe(df.head())
-    
-    st.write("## Column Names")
-    st.write(list(df.columns))
-
-# ============================================================================
-# Main App
-# ============================================================================
-
-# Load data
-with st.spinner("Loading data..."):
-    df = load_data()
-
-if df is not None and len(df) > 0:
-    # Show basic info in sidebar
+    # Sidebar
     with st.sidebar:
         st.header("📊 Collection Stats")
         st.metric("Total Artworks", f"{len(df):,}")
         
-        # Show period distribution if column exists
         if 'estimated_period' in df.columns:
             period_counts = df['estimated_period'].value_counts()
             st.metric("Artworks with Period", f"{period_counts.sum():,}")
         
         st.divider()
         
-        st.header("ℹ️ About the Filters")
+        st.header("ℹ️ About")
         st.markdown("""
-        **Historical Periods** - Journey through art history
-        **Personality Archetypes** - Your foundational artistic lens  
-        **Mood/Vibes** - The emotional atmosphere you seek
-        **Visual Qualities** - What you want to see in the artwork
+        This app uses the **Met Museum API** to fetch real artworks.
+        Data is cached for 24 hours for better performance.
         """)
         
         st.divider()
         
-        # Add option to toggle image loading
+        # Settings
         st.header("🖼️ Settings")
-        load_images = st.checkbox("Load artwork images", value=False, 
-                                 help="Disable for faster loading (images may be slow)")
-        
-        # Number of artworks to display
-        num_artworks = st.slider("Number of artworks to display", 3, 18, 9, step=3)
+        load_images = st.checkbox("Show images", value=True)
+        num_artworks = st.slider("Artworks per page", 6, 30, 12, step=3)
     
-    # ============================================================================
     # Period Selection
-    # ============================================================================
-    
     st.header("📜 STEP 1: Choose Your Art Historical Period")
-    st.markdown("Start by selecting a broad historical period that interests you.")
     
-    # Safely get available periods
-    if 'estimated_period' in df.columns:
-        available_periods = [p for p in art_periods.keys() 
-                           if p in df['estimated_period'].value_counts().index]
-    else:
-        available_periods = list(art_periods.keys())
+    available_periods = ['All Periods'] + [p for p in art_periods.keys() 
+                                          if p in df['estimated_period'].value_counts().index]
     
-    if not available_periods:
-        available_periods = list(art_periods.keys())
+    selected_period = st.selectbox("Select period:", available_periods)
     
-    selected_period = st.selectbox(
-        "Select an art historical period:",
-        available_periods,
-        key="period_select"
-    )
-    
-    # Display period information
-    period_info = art_periods[selected_period]
-    col_info1, col_info2, col_info3 = st.columns(3)
-    
-    with col_info1:
-        st.markdown(f"**📅 Years:** {period_info['years']}")
-    with col_info2:
-        st.markdown(f"**🎭 Personality Matches:** {', '.join(period_info['personality_matches'])}")
-    with col_info3:
-        st.markdown(f"**🌊 Mood Matches:** {', '.join(period_info['mood_matches'][:2])}")
-    
-    st.markdown(f"**📝 Description:** {period_info['description']}")
-    
-    # Show movements if they exist
-    if 'movements' in period_info:
-        movements_html = "".join([f'<span class="movement-badge">{m}</span>' for m in period_info['movements']])
-        st.markdown(f"**Key Movements:** {movements_html}", unsafe_allow_html=True)
-    
-    # Show keywords
-    st.markdown("**Period Keywords:**")
-    st.markdown(display_keywords(period_info['keywords']), unsafe_allow_html=True)
+    if selected_period != 'All Periods' and selected_period in art_periods:
+        period_info = art_periods[selected_period]
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown(f"**📅 Years:** {period_info['years']}")
+        with col2:
+            st.markdown(f"**🎭 Personalities:** {', '.join(period_info['personality_matches'][:2])}")
+        with col3:
+            st.markdown(f"**🌊 Moods:** {', '.join(period_info['mood_matches'][:2])}")
+        st.markdown(f"**📝 {period_info['description']}**")
     
     st.divider()
     
-    # ============================================================================
     # Personality, Mood, Visual Filters
-    # ============================================================================
-    
     st.header("🎯 STEP 2: Refine by Personal Aesthetic")
     
-    # Create three columns for the main filters
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        st.markdown('<p class="filter-header">🎭 PERSONALITY ARCHETYPE</p>', unsafe_allow_html=True)
-        personality_choice = st.selectbox(
-            "Select your artistic personality:",
-            list(personality.keys()),
-            label_visibility="collapsed",
-            key="personality_select"
-        )
-        st.markdown("**Related keywords:**")
+        personality_choice = st.selectbox("🎭 Personality:", list(personality.keys()))
         st.markdown(display_keywords(personality[personality_choice]["keywords"]), unsafe_allow_html=True)
-        
-        # Show recommended periods
-        rec_periods = personality[personality_choice]["period_matches"]
-        if rec_periods:
-            period_badges = "".join([f'<span class="period-badge">{p}</span>' for p in rec_periods[:3]])
-            st.markdown(f"**Recommended periods:** {period_badges}", unsafe_allow_html=True)
     
     with col2:
-        st.markdown('<p class="filter-header">🌊 MOOD & ENERGY</p>', unsafe_allow_html=True)
-        mood_choice = st.selectbox(
-            "Select your desired mood:",
-            list(moods.keys()),
-            label_visibility="collapsed",
-            key="mood_select"
-        )
-        st.markdown("**Related keywords:**")
+        mood_choice = st.selectbox("🌊 Mood:", list(moods.keys()))
         st.markdown(display_keywords(moods[mood_choice]["keywords"]), unsafe_allow_html=True)
-        
-        # Show recommended periods
-        rec_periods = moods[mood_choice]["period_matches"]
-        if rec_periods:
-            period_badges = "".join([f'<span class="period-badge">{p}</span>' for p in rec_periods[:3]])
-            st.markdown(f"**Often found in:** {period_badges}", unsafe_allow_html=True)
     
     with col3:
-        st.markdown('<p class="filter-header">🎨 VISUAL QUALITIES</p>', unsafe_allow_html=True)
-        visual_choice = st.selectbox(
-            "Select visual qualities:",
-            list(visuals.keys()),
-            label_visibility="collapsed",
-            key="visual_select"
-        )
-        st.markdown("**Related keywords:**")
+        visual_choice = st.selectbox("🎨 Visual:", list(visuals.keys()))
         st.markdown(display_keywords(visuals[visual_choice]["keywords"]), unsafe_allow_html=True)
-        
-        # Show recommended periods
-        rec_periods = visuals[visual_choice]["period_matches"]
-        if rec_periods:
-            period_badges = "".join([f'<span class="period-badge">{p}</span>' for p in rec_periods[:3]])
-            st.markdown(f"**Prominent in:** {period_badges}", unsafe_allow_html=True)
     
     st.divider()
     
-    # ============================================================================
-    # Additional Filters
-    # ============================================================================
-    
-    with st.expander("🔍 Additional Filters (Optional)", expanded=False):
-        col4, col5, col6 = st.columns(3)
-        
-        with col4:
-            if 'Department' in df.columns:
-                dept_counts = df['Department'].dropna().value_counts().head(20).index.tolist()
-                selected_dept = st.multiselect("Filter by Department", dept_counts) if dept_counts else []
-            else:
-                selected_dept = []
-                st.info("Department data not available")
-        
-        with col5:
-            if 'Classification' in df.columns:
-                class_counts = df['Classification'].dropna().value_counts().head(20).index.tolist()
-                selected_class = st.multiselect("Filter by Classification", class_counts) if class_counts else []
-            else:
-                selected_class = []
-                st.info("Classification data not available")
-        
-        with col6:
-            if 'Culture' in df.columns:
-                culture_counts = df['Culture'].dropna().value_counts().head(15).index.tolist()
-                selected_culture = st.multiselect("Filter by Culture", culture_counts) if culture_counts else []
-            else:
-                selected_culture = []
-                st.info("Culture data not available")
-    
-    # ============================================================================
-    # Apply Filters
-    # ============================================================================
-    
+    # Filter data
     filtered_df = df.copy()
-    
-    # Apply period filter if column exists
-    if 'estimated_period' in filtered_df.columns and selected_period:
+    if selected_period != 'All Periods':
         filtered_df = filtered_df[filtered_df['estimated_period'] == selected_period]
     
-    # Apply department filter
-    if 'selected_dept' in locals() and selected_dept and 'Department' in filtered_df.columns:
-        filtered_df = filtered_df[filtered_df['Department'].isin(selected_dept)]
-    
-    # Apply classification filter
-    if 'selected_class' in locals() and selected_class and 'Classification' in filtered_df.columns:
-        filtered_df = filtered_df[filtered_df['Classification'].isin(selected_class)]
-    
-    # Apply culture filter
-    if 'selected_culture' in locals() and selected_culture and 'Culture' in filtered_df.columns:
-        filtered_df = filtered_df[filtered_df['Culture'].isin(selected_culture)]
-    
-    # ============================================================================
-    # Show Results
-    # ============================================================================
-    
-    st.header(f"🎨 Found {len(filtered_df):,} Artworks in {selected_period if 'estimated_period' in filtered_df.columns else 'Collection'}")
+    # Display results
+    st.header(f"🎨 Found {len(filtered_df)} Artworks")
     
     if len(filtered_df) > 0:
-        # Create tabs for different views
-        tab1, tab2, tab3 = st.tabs(["Gallery View", "Data View", "Period Information"])
+        # Gallery View
+        sample_size = min(num_artworks, len(filtered_df))
+        display_df = filtered_df.sample(sample_size) if len(filtered_df) > sample_size else filtered_df
         
-        with tab1:
-            # Show sample artworks
-            sample_size = min(num_artworks, len(filtered_df))
-            display_artworks = filtered_df.sample(sample_size) if len(filtered_df) > sample_size else filtered_df
-            
-            # Create grid layout
-            cols_per_row = 3
-            rows = (len(display_artworks) + cols_per_row - 1) // cols_per_row
-            
-            for row in range(rows):
-                cols = st.columns(cols_per_row)
-                start_idx = row * cols_per_row
-                end_idx = min(start_idx + cols_per_row, len(display_artworks))
-                
-                for col_idx in range(start_idx, end_idx):
-                    with cols[col_idx - start_idx]:
-                        artwork = display_artworks.iloc[col_idx]
-                        
-                        # Create card
+        # Create grid
+        cols_per_row = 3
+        for i in range(0, len(display_df), cols_per_row):
+            cols = st.columns(cols_per_row)
+            for j in range(cols_per_row):
+                idx = i + j
+                if idx < len(display_df):
+                    artwork = display_df.iloc[idx]
+                    
+                    with cols[j]:
                         st.markdown('<div class="artwork-card">', unsafe_allow_html=True)
                         
                         # Title
-                        title = artwork.get('Title', 'Untitled')
-                        if title and not pd.isna(title):
-                            st.markdown(f'<div class="artwork-title">{str(title)[:60]}</div>', unsafe_allow_html=True)
+                        title = str(artwork.get('Title', 'Untitled'))
+                        st.markdown(f'<div class="artwork-title">{title[:60]}</div>', unsafe_allow_html=True)
                         
-                        # Show period badge if available
-                        if 'estimated_period' in artwork and artwork['estimated_period'] and not pd.isna(artwork['estimated_period']):
-                            st.markdown(f'<span class="period-badge">{artwork["estimated_period"]}</span>', unsafe_allow_html=True)
+                        # Period badge
+                        if artwork.get('estimated_period'):
+                            st.markdown(f'<span class="period-badge">{artwork["estimated_period"]}</span>', 
+                                      unsafe_allow_html=True)
                         
-                        # Image placeholder
-                        st.markdown('<div class="artwork-image-container no-image">🖼️ Image loading disabled for demo</div>', unsafe_allow_html=True)
+                        # Image
+                        if load_images and artwork.get('Image URL'):
+                            img = load_image(artwork['Image URL'])
+                            if img:
+                                st.markdown('<div class="artwork-image-container">', unsafe_allow_html=True)
+                                st.image(img, use_container_width=True)
+                                st.markdown('</div>', unsafe_allow_html=True)
+                            else:
+                                st.markdown('<div class="artwork-image-container no-image">🖼️ Image unavailable</div>', 
+                                          unsafe_allow_html=True)
+                        else:
+                            st.markdown('<div class="artwork-image-container no-image">🖼️ No image available</div>', 
+                                      unsafe_allow_html=True)
                         
                         # Artist
                         artist = artwork.get('Artist Display Name', 'Unknown')
-                        if artist and not pd.isna(artist) and artist != 'Unknown':
-                            st.markdown(f'<div class="artwork-info">👨‍🎨 {str(artist)[:40]}</div>', unsafe_allow_html=True)
+                        if artist and artist != 'Unknown':
+                            st.markdown(f'<div class="artwork-info">👨‍🎨 {artist[:40]}</div>', unsafe_allow_html=True)
                         
                         # Date
                         date = artwork.get('Object Date', '')
-                        if date and not pd.isna(date):
-                            st.markdown(f'<div class="artwork-info">📅 {str(date)[:30]}</div>', unsafe_allow_html=True)
+                        if date:
+                            st.markdown(f'<div class="artwork-info">📅 {date[:30]}</div>', unsafe_allow_html=True)
                         
-                        # Culture if available
+                        # Culture
                         culture = artwork.get('Culture', '')
-                        if culture and not pd.isna(culture):
-                            st.markdown(f'<div class="artwork-info">🌍 {str(culture)[:30]}</div>', unsafe_allow_html=True)
+                        if culture:
+                            st.markdown(f'<div class="artwork-info">🌍 {culture[:30]}</div>', unsafe_allow_html=True)
+                        
+                        # Link
+                        url = artwork.get('Object URL', '')
+                        if url:
+                            st.markdown(f'<div class="artwork-link"><a href="{url}" target="_blank">🔗 View at Met</a></div>', 
+                                      unsafe_allow_html=True)
                         
                         st.markdown('</div>', unsafe_allow_html=True)
-        
-        with tab2:
-            # Show data table
-            display_cols = ['Title', 'Artist Display Name', 'Object Date']
-            if 'estimated_period' in filtered_df.columns:
-                display_cols.append('estimated_period')
-            display_cols.extend(['Culture', 'Classification', 'Department'])
-            
-            available_cols = [col for col in display_cols if col in filtered_df.columns]
-            if available_cols:
-                st.dataframe(
-                    filtered_df[available_cols].head(100),
-                    use_container_width=True,
-                    hide_index=True
-                )
-                if len(filtered_df) > 100:
-                    st.caption(f"Showing first 100 of {len(filtered_df)} artworks")
-        
-        with tab3:
-            # Show detailed period information
-            st.subheader(f"📚 About {selected_period}")
-            st.markdown(f"**Description:** {period_info['description']}")
-            st.markdown(f"**Time Period:** {period_info['years']}")
-            
-            # Create columns for matched personalities and moods
-            col_a, col_b = st.columns(2)
-            
-            with col_a:
-                st.markdown("**🎭 Compatible Personalities:**")
-                for p_type in period_info['personality_matches']:
-                    if p_type in personality:
-                        st.markdown(f"• **{p_type}** - {', '.join(personality[p_type]['keywords'][:5])}")
-            
-            with col_b:
-                st.markdown("**🌊 Common Moods:**")
-                for m_type in period_info['mood_matches']:
-                    if m_type in moods:
-                        st.markdown(f"• **{m_type}** - {', '.join(moods[m_type]['keywords'][:5])}")
-            
-            # Show keywords
-            st.markdown("**🔑 Period Keywords:**")
-            st.markdown(display_keywords(period_info['keywords']), unsafe_allow_html=True)
-    
     else:
-        st.warning("No artworks found with current filters. Try adjusting your selections or choose a different period.")
+        st.warning("No artworks found for this period. Try another selection.")
 
 else:
     st.error("""
-    ⚠️ Could not load the data file. The app is running in demonstration mode with sample data.
+    ⚠️ Could not load data from the Met API.
     
-    To use the full Met Museum collection:
+    This could be due to:
+    - API rate limiting
+    - Network connectivity issues
     
-    1. Make sure your GitHub repository is public
-    2. The file 'MetObjects.csv' should be in the root of your repository
-    3. For LFS files, you may need to use the GitHub API approach
-    
-    📁 **Current status:** Using sample dataset with 10 famous artworks
+    Please try again in a few minutes.
     """)
