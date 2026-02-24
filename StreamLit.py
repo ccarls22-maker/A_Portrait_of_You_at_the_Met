@@ -13,7 +13,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Custom CSS (keeping your original CSS exactly as is)
+# Custom CSS (keeping your original CSS)
 st.markdown("""
 <style>
     /* Make the entire app background white */
@@ -29,7 +29,7 @@ st.markdown("""
     /* Style the sidebar to be white with dark text */
     section[data-testid="stSidebar"] {
         background-color: white !important;
-        border-right: 1px solid #e0e0e0;  /* Optional: adds a subtle border */
+        border-right: 1px solid #e0e0e0;
     }
     
     section[data-testid="stSidebar"] .stMarkdown,
@@ -186,75 +186,153 @@ st.markdown("""
 st.title("🎨 Met Museum Personal Curator")
 st.markdown("Create your personalized art viewing experience by exploring the Metropolitan Museum of Art's collection through different artistic lenses.")
 
-# In the gallery view section (around line 450), replace the image loading code with:
-
-# Image loading with better error handling
-if load_images:
-    with st.spinner("Loading artwork images..."):
-        # Take a sample
-        sample_artworks = filtered_df.sample(min(50, len(filtered_df))).copy()
-        
-        # Try to get images for a subset
-        artworks_with_images = []
-        
-        # Create progress bar
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        for idx, (_, artwork) in enumerate(sample_artworks.iterrows()):
-            status_text.text(f"Checking for images: {idx+1}/{len(sample_artworks)}")
-            
-            # Check if Object ID exists and is valid
-            if 'Object ID' in artwork and pd.notna(artwork['Object ID']):
-                try:
-                    img_url = get_image_url(artwork['Object ID'])
-                    if img_url:
-                        artwork_dict = artwork.to_dict()
-                        artwork_dict['image_url'] = img_url
-                        artworks_with_images.append(artwork_dict)
-                except Exception as e:
-                    # Silently continue if this artwork fails
-                    pass
-            
-            # Update progress
-            progress_bar.progress((idx + 1) / len(sample_artworks))
-            
-            # Break if we have enough
-            if len(artworks_with_images) >= sample_size:
-                break
-        
-        # Clean up progress indicators
-        progress_bar.empty()
-        status_text.empty()
-        
-        # If we found images, use those
-        if len(artworks_with_images) >= 3:
-            display_artworks = pd.DataFrame(artworks_with_images[:sample_size])
-        else:
-            # Fall back to random sample without images
-            display_artworks = filtered_df.sample(sample_size)
-            st.info("Limited images available. Showing artworks without images.")
-        
-# Load data from GitHub instead of local file
-df = load_data_from_github()
-
-# Fallback to original local file method if GitHub fails
-if df is None:
-    st.warning("GitHub download failed. Trying local file...")
+# Function to get image URL from Met object ID - FIXED VERSION
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_image_url(object_id):
+    """Fetch image URL from Met Museum API"""
     try:
-        file_path = r"C:\Users\court\Downloads\Data_Clubs_Project_1\archive\MetObjects.csv"
-        if os.path.exists(file_path):
-            usecols = ['Object ID', 'Title', 'Artist Display Name', 'Object Date', 
-                      'Classification', 'Department', 'Object URL', 'Medium']
-            df = pd.read_csv(file_path, usecols=lambda x: x in usecols, low_memory=False, nrows=50000)
-            df = df.replace({np.nan: None})
-        else:
-            st.error("Local file not found either.")
-    except Exception as e:
-        st.error(f"Error loading local file: {e}")
+        if pd.isna(object_id):
+            return None
+        # Convert to int and handle any string formatting issues
+        try:
+            # Handle if it's a string with commas or decimals
+            if isinstance(object_id, str):
+                object_id = object_id.replace(',', '').strip()
+            obj_id = int(float(object_id))
+        except (ValueError, TypeError):
+            return None
+            
+        # Met Museum API endpoint for object
+        response = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{obj_id}", timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            # Check for primary image
+            if data.get('primaryImage'):
+                return data['primaryImage']
+            # Check for additional images
+            elif data.get('additionalImages') and len(data['additionalImages']) > 0:
+                return data['additionalImages'][0]
+        return None
+    except Exception:
+        return None
 
-# Rest of your original code remains exactly the same from here onward
-if df is not None:
+# Function to load and cache images
+@st.cache_data(ttl=3600, show_spinner=False)
+def load_image_from_url(url):
+    """Load image from URL"""
+    try:
+        if url:
+            response = requests.get(url, timeout=3)
+            if response.status_code == 200:
+                img = Image.open(BytesIO(response.content))
+                return img
+    except:
+        pass
+    return None
+
+# Updated data loading function
+@st.cache_data
+def load_data():
+    """Load MetObjects.csv from GitHub"""
+    try:
+        # Use the correct URL for GitHub LFS
+        github_url = "https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
+        
+        with st.spinner("Loading Met Museum collection from GitHub... (this may take a minute)"):
+            # Download the file
+            response = requests.get(github_url, timeout=60)
+            response.raise_for_status()
+            
+            # Load CSV
+            df = pd.read_csv(BytesIO(response.content), 
+                           nrows=100000,  # Load up to 100,000 rows
+                           low_memory=False)
+            
+            # Display column names for debugging (can remove later)
+            st.write("Debug - Columns found:", list(df.columns)[:10])
+            
+            # Check for Object ID column (might be named differently)
+            object_id_col = None
+            possible_names = ['Object ID', 'ObjectID', 'object id', 'object_id', 'Id', 'ID']
+            for name in possible_names:
+                if name in df.columns:
+                    object_id_col = name
+                    break
+            
+            if object_id_col and object_id_col != 'Object ID':
+                df = df.rename(columns={object_id_col: 'Object ID'})
+            
+            # Keep only necessary columns
+            keep_cols = []
+            if 'Object ID' in df.columns:
+                keep_cols.append('Object ID')
+            
+            # Add other columns if they exist
+            for col in ['Title', 'Artist Display Name', 'Object Date', 
+                       'Classification', 'Department', 'Object URL', 'Medium']:
+                if col in df.columns:
+                    keep_cols.append(col)
+            
+            if keep_cols:
+                df = df[keep_cols]
+            
+            # Clean up data
+            df = df.replace({np.nan: None})
+            
+            # Remove rows with no title
+            if 'Title' in df.columns:
+                df = df[df['Title'].notna()]
+            
+            st.success(f"✅ Successfully loaded {len(df):,} artworks!")
+            return df
+            
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return None
+
+# Load data
+df = load_data()
+
+# Expanded word banks with more keywords
+personality = {
+    "Classicist": ["order", "balance", "clarity", "timeless", "harmony", "symmetry", "ideal", "perfection", "restraint", "tradition", "proportion", "discipline", "rational", "structured"],
+    "Romantic": ["emotion", "imagination", "mystery", "nature", "passion", "drama", "sublime", "intuition", "wild", "longing", "intensity", "fantasy", "awe", "turbulence", "poetic"],
+    "Realist": ["truth", "authenticity", "grounded", "pragmatic", "observation", "unvarnished", "direct", "honest", "everyday", "ordinary", "candid", "objective", "documentary"],
+    "Innovator": ["experimental", "abstract", "intellectual", "bold", "unconventional", "avant-garde", "radical", "new", "inventive", "conceptual", "challenging", "progressive", "pioneering"],
+    "Symbolist": ["metaphor", "spiritual", "dream", "mystical", "hidden", "coded", "visionary", "esoteric", "subconscious", "otherworldly", "enigmatic", "poetic", "mythic"],
+    "Hedonist": ["sensual", "decorative", "pleasure", "beauty", "elegance", "ornate", "lush", "indulgent", "playful", "charming", "delightful", "opulent", "graceful", "sumptuous"]
+}
+
+moods = {
+    "Dynamic & Dramatic": ["energetic", "intense", "theatrical", "bold", "movement", "action", "contrast", "explosive", "vigorous", "lively", "forceful", "passionate"],
+    "Calm & Balanced": ["serene", "peaceful", "tranquil", "restful", "meditative", "gentle", "soothing", "harmonious", "quiet", "still", "composed", "poised"],
+    "Chaotic & Raw": ["fragmented", "wild", "unrestrained", "expressive", "rough", "spontaneous", "turbulent", "primal", "visceral", "untamed", "emotional", "jagged"],
+    "Warm & Golden": ["radiant", "glowing", "sunlit", "rich", "golden", "fiery", "warm", "amber", "luminous", "vibrant", "passionate", "cozy"],
+    "Cool & Ethereal": ["icy", "silvery", "misty", "pale", "delicate", "airy", "dreamy", "soft", "ghostly", "tranquil", "celestial", "serene"],
+    "Vibrant & Unnatural": ["electric", "neon", "saturated", "bold", "artificial", "psychedelic", "pop", "striking", "flamboyant", "unconventional", "vivid", "dazzling"],
+    "Muted & Naturalistic": ["earthy", "subdued", "soft", "gentle", "realistic", "understated", "organic", "subtle", "quiet", "neutral", "faded", "mellow"]
+}
+
+visuals = {
+    "The Human Figure": ["idealized", "expressive", "deconstructed", "portrait", "body", "anatomy", "gesture", "character", "identity", "emotion", "narrative"],
+    "Nature & Landscape": ["sublime", "pastoral", "wild", "scientific", "botanical", "atmospheric", "scenic", "rural", "natural", "expansive", "tranquil", "dramatic"],
+    "The Inner World": ["dreamlike", "subconscious", "visionary", "surreal", "symbolic", "psychological", "spiritual", "introspective", "mysterious", "fantastical", "meditative"],
+    "Urban & Modern Life": ["city", "technology", "industrial", "social", "leisure", "critique", "modernity", "bustle", "architecture", "crowd", "nightlife", "contemporary"],
+    "The Abstract Idea": ["form", "color", "geometry", "conceptual", "minimal", "pure", "reduction", "structure", "pattern", "nonrepresentational", "experimental"],
+    "Smooth & Polished": ["flawless", "marble", "glazed", "refined", "sleek", "seamless", "glossy", "finished", "perfect", "elegant", "pristine"],
+    "Textured & Painterly": ["impasto", "brushwork", "rough", "tactile", "layered", "expressive", "visible", "raw", "dynamic", "gestural", "thick", "lively"],
+    "Ornate & Decorative": ["intricate", "patterned", "detailed", "gilded", "embellished", "curvilinear", "lavish", "baroque", "rococo", "filigree", "ornamental"]
+}
+
+def display_keywords(keyword_list):
+    """Display keywords as styled tags"""
+    html = '<div class="word-cloud">'
+    for keyword in keyword_list:
+        html += f'<span class="keyword-tag">{keyword}</span>'
+    html += '</div>'
+    return html
+
+if df is not None and len(df) > 0:
     # Show basic info in sidebar
     with st.sidebar:
         st.header("📊 Collection Stats")
@@ -279,45 +357,6 @@ if df is not None:
         # Number of artworks to display
         num_artworks = st.slider("Number of artworks to display", 3, 18, 9, step=3)
     
-    # Expanded word banks with more keywords (your original)
-    personality = {
-        "Classicist": ["order", "balance", "clarity", "timeless", "harmony", "symmetry", "ideal", "perfection", "restraint", "tradition", "proportion", "discipline", "rational", "structured"],
-        "Romantic": ["emotion", "imagination", "mystery", "nature", "passion", "drama", "sublime", "intuition", "wild", "longing", "intensity", "fantasy", "awe", "turbulence", "poetic"],
-        "Realist": ["truth", "authenticity", "grounded", "pragmatic", "observation", "unvarnished", "direct", "honest", "everyday", "ordinary", "candid", "objective", "documentary"],
-        "Innovator": ["experimental", "abstract", "intellectual", "bold", "unconventional", "avant-garde", "radical", "new", "inventive", "conceptual", "challenging", "progressive", "pioneering"],
-        "Symbolist": ["metaphor", "spiritual", "dream", "mystical", "hidden", "coded", "visionary", "esoteric", "subconscious", "otherworldly", "enigmatic", "poetic", "mythic"],
-        "Hedonist": ["sensual", "decorative", "pleasure", "beauty", "elegance", "ornate", "lush", "indulgent", "playful", "charming", "delightful", "opulent", "graceful", "sumptuous"]
-    }
-    
-    moods = {
-        "Dynamic & Dramatic": ["energetic", "intense", "theatrical", "bold", "movement", "action", "contrast", "explosive", "vigorous", "lively", "forceful", "passionate"],
-        "Calm & Balanced": ["serene", "peaceful", "tranquil", "restful", "meditative", "gentle", "soothing", "harmonious", "quiet", "still", "composed", "poised"],
-        "Chaotic & Raw": ["fragmented", "wild", "unrestrained", "expressive", "rough", "spontaneous", "turbulent", "primal", "visceral", "untamed", "emotional", "jagged"],
-        "Warm & Golden": ["radiant", "glowing", "sunlit", "rich", "golden", "fiery", "warm", "amber", "luminous", "vibrant", "passionate", "cozy"],
-        "Cool & Ethereal": ["icy", "silvery", "misty", "pale", "delicate", "airy", "dreamy", "soft", "ghostly", "tranquil", "celestial", "serene"],
-        "Vibrant & Unnatural": ["electric", "neon", "saturated", "bold", "artificial", "psychedelic", "pop", "striking", "flamboyant", "unconventional", "vivid", "dazzling"],
-        "Muted & Naturalistic": ["earthy", "subdued", "soft", "gentle", "realistic", "understated", "organic", "subtle", "quiet", "neutral", "faded", "mellow"]
-    }
-    
-    visuals = {
-        "The Human Figure": ["idealized", "expressive", "deconstructed", "portrait", "body", "anatomy", "gesture", "character", "identity", "emotion", "narrative"],
-        "Nature & Landscape": ["sublime", "pastoral", "wild", "scientific", "botanical", "atmospheric", "scenic", "rural", "natural", "expansive", "tranquil", "dramatic"],
-        "The Inner World": ["dreamlike", "subconscious", "visionary", "surreal", "symbolic", "psychological", "spiritual", "introspective", "mysterious", "fantastical", "meditative"],
-        "Urban & Modern Life": ["city", "technology", "industrial", "social", "leisure", "critique", "modernity", "bustle", "architecture", "crowd", "nightlife", "contemporary"],
-        "The Abstract Idea": ["form", "color", "geometry", "conceptual", "minimal", "pure", "reduction", "structure", "pattern", "nonrepresentational", "experimental"],
-        "Smooth & Polished": ["flawless", "marble", "glazed", "refined", "sleek", "seamless", "glossy", "finished", "perfect", "elegant", "pristine"],
-        "Textured & Painterly": ["impasto", "brushwork", "rough", "tactile", "layered", "expressive", "visible", "raw", "dynamic", "gestural", "thick", "lively"],
-        "Ornate & Decorative": ["intricate", "patterned", "detailed", "gilded", "embellished", "curvilinear", "lavish", "baroque", "rococo", "filigree", "ornamental"]
-    }
-    
-    def display_keywords(keyword_list):
-        """Display keywords as styled tags"""
-        html = '<div class="word-cloud">'
-        for keyword in keyword_list:
-            html += f'<span class="keyword-tag">{keyword}</span>'
-        html += '</div>'
-        return html
-    
     # Main interface
     st.header("🎯 Choose Your Preferences")
     
@@ -332,11 +371,9 @@ if df is not None:
             label_visibility="collapsed",
             key="personality_select"
         )
-        # Show keywords for selected personality
         st.markdown("**Related keywords:**")
         st.markdown(display_keywords(personality[personality_choice]), unsafe_allow_html=True)
         
-        # Show all other personalities in an expander
         with st.expander("See all personality types"):
             for p_type, keywords in personality.items():
                 if p_type != personality_choice:
@@ -351,11 +388,9 @@ if df is not None:
             label_visibility="collapsed",
             key="mood_select"
         )
-        # Show keywords for selected mood
         st.markdown("**Related keywords:**")
         st.markdown(display_keywords(moods[mood_choice]), unsafe_allow_html=True)
         
-        # Show all other moods in an expander
         with st.expander("See all mood types"):
             for m_type, keywords in moods.items():
                 if m_type != mood_choice:
@@ -370,11 +405,9 @@ if df is not None:
             label_visibility="collapsed",
             key="visual_select"
         )
-        # Show keywords for selected visual quality
         st.markdown("**Related keywords:**")
         st.markdown(display_keywords(visuals[visual_choice]), unsafe_allow_html=True)
         
-        # Show all other visual qualities in an expander
         with st.expander("See all visual qualities"):
             for v_type, keywords in visuals.items():
                 if v_type != visual_choice:
@@ -383,91 +416,80 @@ if df is not None:
     
     st.divider()
     
-    # Simplified additional filters - REMOVED date range
+    # Additional filters
     with st.expander("🔍 Additional Filters (Optional)", expanded=False):
         col4, col5 = st.columns(2)
         
         with col4:
             if 'Department' in df.columns:
-                # Get top 20 departments by count
                 dept_counts = df['Department'].value_counts().head(20).index.tolist()
-                selected_dept = st.multiselect("Filter by Department", dept_counts)
+                selected_dept = st.multiselect("Filter by Department", dept_counts) if dept_counts else []
+            else:
+                selected_dept = []
         
         with col5:
             if 'Classification' in df.columns:
-                # Get top 20 classifications
                 class_counts = df['Classification'].value_counts().head(20).index.tolist()
-                selected_class = st.multiselect("Filter by Classification", class_counts)
+                selected_class = st.multiselect("Filter by Classification", class_counts) if class_counts else []
+            else:
+                selected_class = []
     
     # Apply filters
     filtered_df = df.copy()
     
-    # Apply department filter
-    if 'selected_dept' in locals() and selected_dept:
+    if 'selected_dept' in locals() and selected_dept and 'Department' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['Department'].isin(selected_dept)]
     
-    # Apply classification filter
-    if 'selected_class' in locals() and selected_class:
+    if 'selected_class' in locals() and selected_class and 'Classification' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['Classification'].isin(selected_class)]
     
     # Show results
     st.header(f"🎨 Found {len(filtered_df):,} Artworks")
     
     if len(filtered_df) > 0:
-        # Create tabs for different views
         tab1, tab2 = st.tabs(["Gallery View", "Data View"])
         
         with tab1:
-            # Show sample artworks in a grid
             sample_size = min(num_artworks, len(filtered_df))
             
-            # Try to get artworks with images first if load_images is True
             if load_images:
                 with st.spinner("Loading artwork images..."):
-                    # Take a sample
                     sample_artworks = filtered_df.sample(min(50, len(filtered_df))).copy()
-                    
-                    # Try to get images for a subset
                     artworks_with_images = []
-                    
-                    # Create progress bar
                     progress_bar = st.progress(0)
                     status_text = st.empty()
                     
                     for idx, (_, artwork) in enumerate(sample_artworks.iterrows()):
                         status_text.text(f"Checking for images: {idx+1}/{len(sample_artworks)}")
                         
-                        if pd.notna(artwork.get('Object ID')):
-                            img_url = get_image_url(artwork['Object ID'])
-                            if img_url:
-                                artwork_dict = artwork.to_dict()
-                                artwork_dict['image_url'] = img_url
-                                artworks_with_images.append(artwork_dict)
+                        # Safely get Object ID
+                        if 'Object ID' in artwork.index and pd.notna(artwork['Object ID']):
+                            try:
+                                img_url = get_image_url(artwork['Object ID'])
+                                if img_url:
+                                    artwork_dict = artwork.to_dict()
+                                    artwork_dict['image_url'] = img_url
+                                    artworks_with_images.append(artwork_dict)
+                            except Exception:
+                                pass
                         
-                        # Update progress
                         progress_bar.progress((idx + 1) / len(sample_artworks))
                         
-                        # Break if we have enough
                         if len(artworks_with_images) >= sample_size:
                             break
                     
-                    # Clean up progress indicators
                     progress_bar.empty()
                     status_text.empty()
                     
-                    # If we found images, use those
                     if len(artworks_with_images) >= 3:
                         display_artworks = pd.DataFrame(artworks_with_images[:sample_size])
                     else:
-                        # Fall back to random sample without images
                         display_artworks = filtered_df.sample(sample_size)
                         st.info("Limited images available. Showing artworks without images.")
-            
             else:
-                # If load_images is False, just show random sample
                 display_artworks = filtered_df.sample(sample_size)
             
-            # Create grid layout
+            # Grid layout
             cols_per_row = 3
             rows = (len(display_artworks) + cols_per_row - 1) // cols_per_row
             
@@ -480,15 +502,12 @@ if df is not None:
                     with cols[col_idx - start_idx]:
                         artwork = display_artworks.iloc[col_idx]
                         
-                        # Create card
                         st.markdown('<div class="artwork-card">', unsafe_allow_html=True)
                         
-                        # Title
                         title = artwork.get('Title', 'Untitled')
                         if title:
                             st.markdown(f'<div class="artwork-title">{str(title)[:60]}</div>', unsafe_allow_html=True)
                         
-                        # Image
                         if load_images and 'image_url' in artwork and artwork['image_url']:
                             img = load_image_from_url(artwork['image_url'])
                             if img:
@@ -500,22 +519,18 @@ if df is not None:
                         else:
                             st.markdown('<div class="artwork-image-container no-image">🖼️ No image available</div>', unsafe_allow_html=True)
                         
-                        # Artist
                         artist = artwork.get('Artist Display Name', 'Unknown')
                         if artist and artist != 'Unknown':
                             st.markdown(f'<div class="artwork-info">👨‍🎨 {str(artist)[:40]}</div>', unsafe_allow_html=True)
                         
-                        # Date
                         date = artwork.get('Object Date', '')
                         if date:
                             st.markdown(f'<div class="artwork-info">📅 {str(date)[:30]}</div>', unsafe_allow_html=True)
                         
-                        # Department/Classification
                         dept = artwork.get('Department', '')
                         if dept:
                             st.markdown(f'<div class="artwork-info">🏛️ {str(dept)[:30]}</div>', unsafe_allow_html=True)
                         
-                        # Link
                         object_url = artwork.get('Object URL')
                         if object_url:
                             st.markdown(f'<div class="artwork-link"><a href="{object_url}" target="_blank">🔗 View on Met Website</a></div>', unsafe_allow_html=True)
@@ -523,17 +538,17 @@ if df is not None:
                         st.markdown('</div>', unsafe_allow_html=True)
         
         with tab2:
-            # Show data table
             display_cols = ['Title', 'Artist Display Name', 'Object Date', 
                           'Classification', 'Department', 'Object URL']
             available_cols = [col for col in display_cols if col in filtered_df.columns]
-            st.dataframe(
-                filtered_df[available_cols].head(100),
-                use_container_width=True,
-                hide_index=True
-            )
-            if len(filtered_df) > 100:
-                st.caption(f"Showing first 100 of {len(filtered_df)} artworks")
+            if available_cols:
+                st.dataframe(
+                    filtered_df[available_cols].head(100),
+                    use_container_width=True,
+                    hide_index=True
+                )
+                if len(filtered_df) > 100:
+                    st.caption(f"Showing first 100 of {len(filtered_df)} artworks")
     else:
         st.warning("No artworks found with current filters. Try adjusting your selections.")
 
