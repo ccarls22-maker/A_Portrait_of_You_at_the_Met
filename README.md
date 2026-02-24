@@ -1,9 +1,8 @@
-# A_Portrait_of_You_at_the_Met
-Born from a passion for art history and a data scientist's toolkit, this app helps you navigate The Met's vast collection. Filter over 440,000 pieces by your unique personality and mood, discover the art that resonates with you.
-
 # Accessing the App
 
 You can find the app on my StreamLit Profile or use this link directly: https://aportraitofyouatthemet-2y2ogv9r7mhzrp5tk42nrr.streamlit.app/ 
+
+---
 
 # About the App
 
@@ -17,6 +16,8 @@ While this GitHub-based app uses around 70,000 pieces of art for faster loading,
 and full Met CSV to curate your own collection of over 400,000 pieces locally. (The GitHub selection was reduced to save load times.)
 
 Want to see behind the curtain? Here's some information about the filters—each choice favors various periods or movements within art:
+
+---
 
 # Step 1: Define general Periods
 
@@ -165,4 +166,4 @@ Intricate detail, pattern, gilt, and curvature.
 Periods: Rococo, Gothic, Art Nouveau.
 ----
 
-
+## Remember you can also use the Additional filter to search by department or classification! 
