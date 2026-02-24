@@ -230,24 +230,44 @@ def load_image_from_url(url):
         pass
     return None
 
-# Updated data loading function
+# Updated data loading function with random sampling
 @st.cache_data
 def load_data():
-    """Load MetObjects.csv from GitHub"""
+    """Load MetObjects.csv from GitHub with random sampling"""
     try:
         # Use the correct URL for GitHub LFS
         github_url = "https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
         
         with st.spinner("Loading Met Museum collection from GitHub... (this may take a minute)"):
-            # Download the file
-            response = requests.get(github_url, timeout=60)
+            # First, get the total number of rows without loading all data
+            response = requests.get(github_url, timeout=60, stream=True)
             response.raise_for_status()
             
-            # Load CSV
-            df = pd.read_csv(BytesIO(response.content), 
-                           nrows=100000,  # Load up to 100,000 rows
-                           low_memory=False)
-        
+            # Read the first chunk to get column names
+            chunk = pd.read_csv(BytesIO(response.raw.read(1024 * 1024)), nrows=0)
+            total_rows_estimate = 200000  # Approximate based on Met collection size
+            
+            # Calculate skip rows for random sampling
+            sample_size = 15000
+            
+            # Generate random row numbers to skip (excluding header)
+            if total_rows_estimate > sample_size:
+                # Create a list of rows to keep (randomly selected)
+                rows_to_keep = sorted(np.random.choice(
+                    range(1, total_rows_estimate),  # Skip header row (index 0)
+                    size=sample_size,
+                    replace=False
+                ))
+                
+                # Read the CSV with random sampling
+                df = pd.read_csv(
+                    github_url,
+                    skiprows=lambda x: x not in rows_to_keep and x != 0,  # Keep header and selected rows
+                    low_memory=False
+                )
+            else:
+                # If file is smaller than sample size, load all
+                df = pd.read_csv(github_url, low_memory=False)
             
             # Check for Object ID column (might be named differently)
             object_id_col = None
@@ -281,7 +301,7 @@ def load_data():
             if 'Title' in df.columns:
                 df = df[df['Title'].notna()]
             
-            st.success(f"✅ Successfully loaded {len(df):,} artworks!")
+            st.success(f"✅ Successfully loaded {len(df):,} randomly sampled artworks!")
             return df
             
     except Exception as e:
@@ -334,7 +354,7 @@ if df is not None and len(df) > 0:
     # Show basic info in sidebar
     with st.sidebar:
         st.header("📊 Collection Stats")
-        st.metric("Total Artworks", f"{len(df):,}")
+        st.metric("Sampled Artworks", f"{len(df):,}")
         
         st.divider()
         
@@ -442,7 +462,7 @@ if df is not None and len(df) > 0:
         filtered_df = filtered_df[filtered_df['Classification'].isin(selected_class)]
     
     # Show results
-    st.header(f"🎨 Found {len(filtered_df):,} Artworks")
+    st.header(f"🎨 Found {len(filtered_df):,} Artworks in Sample")
     
     if len(filtered_df) > 0:
         tab1, tab2 = st.tabs(["Gallery View", "Data View"])
