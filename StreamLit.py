@@ -516,12 +516,36 @@ def display_keywords(keyword_list):
 # ============================================================================
 
 @st.cache_data
-def load_data():
-    """Load from Hugging Face Datasets"""
-    url = "https://huggingface.co/datasets/your-username/met-museum/raw/main/MetObjects.csv"
-    df = pd.read_csv(url, nrows=5000)
-    # ... rest of processing
-    return df
+def load_from_api():
+    """Fetch data directly from Met Museum API"""
+    # Get a sample of object IDs (you can expand this)
+    response = requests.get("https://collectionapi.metmuseum.org/public/collection/v1/objects")
+    object_ids = response.json()['object_ids'][:1000]  # First 1000 objects
+    
+    artworks = []
+    for i, obj_id in enumerate(object_ids):
+        if i % 100 == 0:
+            st.info(f"Fetching artwork {i}/{len(object_ids)}...")
+        
+        try:
+            data = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{obj_id}").json()
+            if data.get('primaryImage'):  # Only include artworks with images
+                artworks.append({
+                    'Object ID': obj_id,
+                    'Title': data.get('title'),
+                    'Artist Display Name': data.get('artistDisplayName'),
+                    'Object Date': data.get('objectDate'),
+                    'Classification': data.get('classification'),
+                    'Department': data.get('department'),
+                    'Object URL': data.get('objectURL'),
+                    'Medium': data.get('medium'),
+                    'Culture': data.get('culture'),
+                    'Period': data.get('period')
+                })
+        except:
+            continue
+    
+    return pd.DataFrame(artworks)
 
 # ============================================================================
 # Main App
