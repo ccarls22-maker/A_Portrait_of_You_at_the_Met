@@ -516,36 +516,113 @@ def display_keywords(keyword_list):
 # ============================================================================
 
 @st.cache_data
-def load_from_api():
-    """Fetch data directly from Met Museum API"""
-    # Get a sample of object IDs (you can expand this)
-    response = requests.get("https://collectionapi.metmuseum.org/public/collection/v1/objects")
-    object_ids = response.json()['object_ids'][:1000]  # First 1000 objects
+def load_data():
+    """Simplified test version to debug API access"""
     
-    artworks = []
-    for i, obj_id in enumerate(object_ids):
-        if i % 100 == 0:
-            st.info(f"Fetching artwork {i}/{len(object_ids)}...")
+    # Create a placeholder for any errors
+    error_messages = []
+    
+    # Test 1: Basic internet connection
+    try:
+        test_response = requests.get("https://api.github.com", timeout=5)
+        st.write("✅ GitHub API is reachable")
+    except Exception as e:
+        error_messages.append(f"GitHub API unreachable: {str(e)}")
+        st.write(f"❌ GitHub API unreachable: {str(e)}")
+    
+    # Test 2: Try to access your repository
+    try:
+        repo_url = "https://api.github.com/repos/ccarls22-maker/A_Portrait_of_You_at_the_Met"
+        repo_response = requests.get(repo_url, timeout=5)
+        st.write(f"✅ Repository accessible (status: {repo_response.status_code})")
+    except Exception as e:
+        error_messages.append(f"Repository unreachable: {str(e)}")
+        st.write(f"❌ Repository unreachable: {str(e)}")
+    
+    # Test 3: Try to get the file info
+    try:
+        file_url = "https://api.github.com/repos/ccarls22-maker/A_Portrait_of_You_at_the_Met/contents/MetObjects.csv"
+        file_response = requests.get(file_url, timeout=5)
+        st.write(f"✅ File info accessible (status: {file_response.status_code})")
         
-        try:
-            data = requests.get(f"https://collectionapi.metmuseum.org/public/collection/v1/objects/{obj_id}").json()
-            if data.get('primaryImage'):  # Only include artworks with images
-                artworks.append({
-                    'Object ID': obj_id,
-                    'Title': data.get('title'),
-                    'Artist Display Name': data.get('artistDisplayName'),
-                    'Object Date': data.get('objectDate'),
-                    'Classification': data.get('classification'),
-                    'Department': data.get('department'),
-                    'Object URL': data.get('objectURL'),
-                    'Medium': data.get('medium'),
-                    'Culture': data.get('culture'),
-                    'Period': data.get('period')
-                })
-        except:
-            continue
+        if file_response.status_code == 200:
+            file_data = file_response.json()
+            st.write(f"File size: {file_data.get('size', 'unknown')} bytes")
+            st.write(f"File type: {file_data.get('type', 'unknown')}")
+            
+            # Check if it's an LFS file
+            if file_data.get('size', 0) < 1000:  # Small file might be LFS pointer
+                st.write("⚠️ This appears to be an LFS pointer file")
+                # Try to get the actual content
+                download_url = file_data.get('download_url')
+                if download_url:
+                    st.write(f"Download URL: {download_url}")
+                    content_response = requests.get(download_url, timeout=10)
+                    st.write(f"Content download status: {content_response.status_code}")
+                    if content_response.status_code == 200:
+                        preview = content_response.text[:200]
+                        st.write(f"Content preview: {preview}")
+    except Exception as e:
+        error_messages.append(f"File info failed: {str(e)}")
+        st.write(f"❌ File info failed: {str(e)}")
     
-    return pd.DataFrame(artworks)
+    # Test 4: Try the raw GitHub URL
+    try:
+        raw_url = "https://raw.githubusercontent.com/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
+        raw_response = requests.get(raw_url, timeout=5)
+        st.write(f"✅ Raw URL accessible (status: {raw_response.status_code})")
+        if raw_response.status_code == 200:
+            preview = raw_response.text[:200]
+            st.write(f"Raw content preview: {preview}")
+    except Exception as e:
+        error_messages.append(f"Raw URL failed: {str(e)}")
+        st.write(f"❌ Raw URL failed: {str(e)}")
+    
+    # Test 5: Try the media CDN URL
+    try:
+        cdn_url = "https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
+        cdn_response = requests.get(cdn_url, timeout=5)
+        st.write(f"✅ CDN URL accessible (status: {cdn_response.status_code})")
+        if cdn_response.status_code == 200:
+            preview = cdn_response.text[:200]
+            st.write(f"CDN content preview: {preview}")
+    except Exception as e:
+        error_messages.append(f"CDN URL failed: {str(e)}")
+        st.write(f"❌ CDN URL failed: {str(e)}")
+    
+    # Show all errors if any
+    if error_messages:
+        st.error("Errors encountered:")
+        for msg in error_messages:
+            st.error(msg)
+        st.stop()
+    
+    # If we get here, try to actually load the data
+    st.info("Attempting to load actual data...")
+    
+    try:
+        # Try CDN first
+        cdn_url = "https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
+        df = pd.read_csv(cdn_url, nrows=100, low_memory=False)  # Just 100 rows for testing
+        st.success(f"✅ Successfully loaded {len(df)} rows!")
+        st.write("Columns found:", list(df.columns))
+        return df
+    except Exception as e:
+        st.error(f"Failed to load data: {str(e)}")
+        st.stop()
+
+# Temporarily comment out your existing code after load_data() and just run the test
+# Add this right after your load_data() function:
+
+st.write("## Testing Data Loading")
+df = load_data()
+
+if df is not None:
+    st.write("## Data Preview")
+    st.dataframe(df.head())
+    
+    st.write("## Column Names")
+    st.write(list(df.columns))
 
 # ============================================================================
 # Main App
