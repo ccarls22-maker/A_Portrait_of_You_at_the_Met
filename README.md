@@ -3,6 +3,8 @@
 You can find the app on my StreamLit Profile or use this link directly:
 [https://aportraitofyouatthemet-2y2ogv9r7mhzrp5tk42nrr.streamlit.app/](https://aportraitofyouatthemet-2y2ogv9r7mhzrp5tk42nrr.streamlit.app/)
 
+## IMPORTANT NOTE: Because this app is running on Streamlit's free tier, it has limited memory and may crash when processing large amounts of data. For a more stable experience with better performance, I recommend running the code locally on your desktop. The setup instructions are included in the documents above.
+
 ---
 
 # About the App
