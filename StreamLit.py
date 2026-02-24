@@ -6,7 +6,62 @@ import requests
 from PIL import Image
 from io import BytesIO
 import random
+# Add this import at the top with your other imports
+import requests
+from io import StringIO
 
+# Replace your existing load_data function with this:
+@st.cache_data
+def load_data():
+    """Load data from GitHub repository"""
+    try:
+        # Use the raw GitHub URL for your file
+        # You'll need to update this URL once your file is on GitHub
+        github_url = "https://raw.githubusercontent.com/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
+        
+        # Alternative if the file is in a subfolder:
+        # github_url = "https://raw.githubusercontent.com/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/data/MetObjects.csv"
+        
+        with st.spinner("Downloading data from GitHub... (this may take a minute)"):
+            # Download the file with progress indicator
+            response = requests.get(github_url, stream=True)
+            response.raise_for_status()  # Raise an error for bad status codes
+            
+            # Get content size for progress tracking
+            content_length = int(response.headers.get('content-length', 0))
+            
+            if content_length > 100 * 1024 * 1024:  # If file > 100MB
+                st.warning("Large file detected. Loading may take a few minutes...")
+            
+            # Read the CSV directly from the response
+            df = pd.read_csv(StringIO(response.text), low_memory=False, 
+                           usecols=lambda x: x in ['Object ID', 'Title', 'Artist Display Name', 
+                                                  'Object Date', 'Classification', 'Department', 
+                                                  'Object URL', 'Medium', 'Culture', 'Period'])
+        
+        # Clean up data
+        df = df.replace({np.nan: None})
+        
+        # Add estimated period column (with a smaller sample for performance)
+        with st.spinner("Analyzing artwork dates..."):
+            # Process in chunks to avoid memory issues
+            df['estimated_period'] = df['Object Date'].head(10000).apply(estimate_period_from_date)
+            
+            # For the rest, use a faster method or leave as None
+            if len(df) > 10000:
+                # You could implement batch processing here if needed
+                pass
+        
+        return df
+        
+    except requests.exceptions.RequestException as e:
+        st.error(f"Error downloading data from GitHub: {e}")
+        st.info("Make sure your file is publicly accessible on GitHub")
+        return None
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return None
+        
 # Page config
 st.set_page_config(
     page_title="Met Museum Personal Curator",
