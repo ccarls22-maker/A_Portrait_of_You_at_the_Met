@@ -5,7 +5,6 @@ import os
 import requests
 from PIL import Image
 from io import BytesIO
-import time
 
 # Page config
 st.set_page_config(
@@ -231,17 +230,20 @@ def load_image_from_url(url):
         pass
     return None
 
-# SIMPLIFIED: Just load first N rows - MUCH FASTER!
-@st.cache_data(ttl=3600)  # Cache for 1 hour
+# FAST data loading - just first 10,000 rows directly from URL
+@st.cache_data
 def load_data():
-    """Load first 15,000 rows of MetObjects.csv from GitHub"""
+    """Load first 10,000 rows of MetObjects.csv from GitHub"""
     try:
+        # Use the correct URL for GitHub LFS
         github_url = "https://media.githubusercontent.com/media/ccarls22-maker/A_Portrait_of_You_at_the_Met/main/MetObjects.csv"
         
-        with st.spinner("Loading Met Museum collection..."):
-            # Simply read the first 15,000 rows - this is fast!
-            df = pd.read_csv(github_url, nrows=15000, low_memory=False)
-            
+        with st.spinner("Loading Met Museum collection... (loading first 10,000 artworks)"):
+            # Load CSV directly from URL with nrows parameter - FAST!
+            df = pd.read_csv(github_url, 
+                           nrows=10000,  # Load exactly 10,000 rows
+                           low_memory=False)
+        
             # Check for Object ID column (might be named differently)
             object_id_col = None
             possible_names = ['Object ID', 'ObjectID', 'object id', 'object_id', 'Id', 'ID']
@@ -281,24 +283,8 @@ def load_data():
         st.error(f"Error loading data: {e}")
         return None
 
-# Get department and classification options
-@st.cache_data
-def get_filter_options(df):
-    """Get unique values for filters"""
-    options = {}
-    if df is not None:
-        if 'Department' in df.columns:
-            options['departments'] = df['Department'].dropna().unique().tolist()[:20]
-        if 'Classification' in df.columns:
-            options['classifications'] = df['Classification'].dropna().unique().tolist()[:20]
-    return options
-
-# Load data - this will be fast now!
+# Load data
 df = load_data()
-
-# Get filter options
-if df is not None:
-    filter_options = get_filter_options(df)
 
 # Expanded word banks with more keywords
 personality = {
@@ -343,7 +329,7 @@ if df is not None and len(df) > 0:
     # Show basic info in sidebar
     with st.sidebar:
         st.header("📊 Collection Stats")
-        st.metric("Artworks Loaded", f"{len(df):,}")
+        st.metric("Total Artworks", f"{len(df):,}")
         
         st.divider()
         
@@ -363,11 +349,6 @@ if df is not None and len(df) > 0:
         
         # Number of artworks to display
         num_artworks = st.slider("Number of artworks to display", 3, 18, 9, step=3)
-        
-        # Optional: Add a refresh button
-        if st.button("🔄 Refresh Sample"):
-            st.cache_data.clear()
-            st.rerun()
     
     # Main interface
     st.header("🎯 Choose Your Preferences")
@@ -434,23 +415,25 @@ if df is not None and len(df) > 0:
         
         with col4:
             if 'Department' in df.columns:
-                selected_dept = st.multiselect("Filter by Department", filter_options.get('departments', []))
+                dept_counts = df['Department'].value_counts().head(20).index.tolist()
+                selected_dept = st.multiselect("Filter by Department", dept_counts) if dept_counts else []
             else:
                 selected_dept = []
         
         with col5:
             if 'Classification' in df.columns:
-                selected_class = st.multiselect("Filter by Classification", filter_options.get('classifications', []))
+                class_counts = df['Classification'].value_counts().head(20).index.tolist()
+                selected_class = st.multiselect("Filter by Classification", class_counts) if class_counts else []
             else:
                 selected_class = []
     
     # Apply filters
     filtered_df = df.copy()
     
-    if selected_dept and 'Department' in filtered_df.columns:
+    if 'selected_dept' in locals() and selected_dept and 'Department' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['Department'].isin(selected_dept)]
     
-    if selected_class and 'Classification' in filtered_df.columns:
+    if 'selected_class' in locals() and selected_class and 'Classification' in filtered_df.columns:
         filtered_df = filtered_df[filtered_df['Classification'].isin(selected_class)]
     
     # Show results
@@ -464,33 +447,38 @@ if df is not None and len(df) > 0:
             
             if load_images:
                 with st.spinner("Loading artwork images..."):
-                    # Take a random sample from filtered results
-                    display_artworks = filtered_df.sample(min(50, len(filtered_df))).copy()
+                    sample_artworks = filtered_df.sample(min(50, len(filtered_df))).copy()
+                    artworks_with_images = []
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
                     
-                    # Add image URLs
-                    if 'Object ID' in display_artworks.columns:
-                        image_urls = {}
-                        for idx, obj_id in enumerate(display_artworks['Object ID'].head(sample_size * 2)):
-                            if idx % 10 == 0:  # Small delay to avoid rate limiting
-                                time.sleep(0.1)
-                            if pd.notna(obj_id):
-                                url = get_image_url(obj_id)
-                                if url:
-                                    image_urls[obj_id] = url
-                                    if len(image_urls) >= sample_size:
-                                        break
+                    for idx, (_, artwork) in enumerate(sample_artworks.iterrows()):
+                        status_text.text(f"Checking for images: {idx+1}/{len(sample_artworks)}")
                         
-                        display_artworks['image_url'] = display_artworks['Object ID'].map(image_urls)
+                        # Safely get Object ID
+                        if 'Object ID' in artwork.index and pd.notna(artwork['Object ID']):
+                            try:
+                                img_url = get_image_url(artwork['Object ID'])
+                                if img_url:
+                                    artwork_dict = artwork.to_dict()
+                                    artwork_dict['image_url'] = img_url
+                                    artworks_with_images.append(artwork_dict)
+                            except Exception:
+                                pass
+                        
+                        progress_bar.progress((idx + 1) / len(sample_artworks))
+                        
+                        if len(artworks_with_images) >= sample_size:
+                            break
                     
-                    # Filter to those with images if possible
-                    artworks_with_images = display_artworks[display_artworks['image_url'].notna()]
+                    progress_bar.empty()
+                    status_text.empty()
                     
                     if len(artworks_with_images) >= 3:
-                        display_artworks = artworks_with_images.head(sample_size)
+                        display_artworks = pd.DataFrame(artworks_with_images[:sample_size])
                     else:
                         display_artworks = filtered_df.sample(sample_size)
-                        if len(artworks_with_images) == 0:
-                            st.info("No images available for this selection. Showing artworks without images.")
+                        st.info("Limited images available. Showing artworks without images.")
             else:
                 display_artworks = filtered_df.sample(sample_size)
             
