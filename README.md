@@ -8,9 +8,7 @@
 
 ## Option 2 StreamLit
 
-
-
-## IMPORTANT NOTE: Because this app is running on Streamlit's free tier, it has limited memory and may crash when processing large amounts of data. For a more stable experience with better performance, I recommend running the code locally on your desktop. The setup instructions are included in the documents above.
+IMPORTANT NOTE: Because this app is running on Streamlit's free tier, it has limited memory and may crash when processing large amounts of data. For a more stable experience with better performance, I recommend running the code locally on your desktop. The setup instructions are included in the documents above.
 
 ---
 
