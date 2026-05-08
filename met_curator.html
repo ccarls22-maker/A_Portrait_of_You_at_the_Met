@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Met Museum Personal Curator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --cream: #F9F5EF;
+  --parchment: #F0E9DC;
+  --warm-white: #FDFAF6;
+  --ink: #1A1209;
+  --ink-mid: #3D2E1A;
+  --ink-light: #7A6A55;
+  --ink-faint: #B8A898;
+  --gold: #8B6914;
+  --gold-light: #C9A84C;
+  --gold-pale: #F5EDD4;
+  --border: rgba(26,18,9,0.1);
+  --border-strong: rgba(26,18,9,0.2);
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+/* ── HEADER ── */
+.site-header {
+  background: var(--ink);
+  padding: 2.5rem 3rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.header-left {}
+
+.header-eyebrow {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  margin-bottom: 0.5rem;
+}
+
+.header-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 300;
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  color: #FFFFFF;
+  line-height: 1;
+}
+
+.header-title em {
+  font-style: italic;
+  color: var(--gold-light);
+}
+
+.header-sub {
+  font-size: 13px;
+  color: rgba(255,255,255,0.45);
+  margin-top: 0.75rem;
+  font-weight: 300;
+  max-width: 440px;
+  line-height: 1.6;
+}
+
+.header-stat {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.stat-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.5rem;
+  font-weight: 300;
+  color: var(--gold-light);
+  line-height: 1;
+}
+
+.stat-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  margin-top: 4px;
+}
+
+/* ── LAYOUT ── */
+.app-body {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: calc(100vh - 140px);
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background: var(--warm-white);
+  border-right: 1px solid var(--border);
+  padding: 2rem 1.5rem;
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 140px);
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  margin-bottom: 2rem;
+}
+
+.sidebar-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.filter-group {
+  margin-bottom: 1.5rem;
+}
+
+.filter-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-mid);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+select {
+  width: 100%;
+  background: var(--cream);
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--ink);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237A6A55'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+select:focus { border-color: var(--gold); }
+
+.keywords-wrap {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.keyword-pill {
+  background: var(--gold-pale);
+  color: var(--gold);
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 100px;
+  font-family: 'DM Mono', monospace;
+  border: 1px solid rgba(139,105,20,0.2);
+}
+
+.slider-wrap {
+  margin-top: 6px;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--gold);
+  cursor: pointer;
+}
+
+.slider-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--gold);
+  text-align: center;
+  margin-top: 4px;
+}
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--ink-mid);
+  margin-bottom: 8px;
+}
+
+.toggle {
+  position: relative;
+  width: 32px;
+  height: 18px;
+}
+
+.toggle input { opacity: 0; width: 0; height: 0; }
+
+.toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: var(--border-strong);
+  border-radius: 100px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  left: 2px; top: 2px;
+  width: 14px; height: 14px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle input:checked + .toggle-slider { background: var(--gold); }
+.toggle input:checked + .toggle-slider::before { transform: translateX(14px); }
+
+.run-btn {
+  width: 100%;
+  background: var(--ink);
+  color: white;
+  border: none;
+  border-radius: 3px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 17px;
+  font-weight: 400;
+  letter-spacing: 0.05em;
+  padding: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-top: 0.5rem;
+}
+
+.run-btn:hover { background: var(--gold); }
+.run-btn:active { transform: scale(0.98); }
+
+/* ── MAIN CONTENT ── */
+.main-content {
+  padding: 2rem 2.5rem;
+}
+
+/* State banners */
+.state-banner {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--ink-faint);
+}
+
+.state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.4;
+}
+
+.state-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 1.4rem;
+  color: var(--ink-light);
+}
+
+.state-sub {
+  font-size: 13px;
+  color: var(--ink-faint);
+  margin-top: 0.5rem;
+}
+
+/* Results header */
+.results-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.results-count {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: var(--ink);
+}
+
+.results-count span { color: var(--gold); font-weight: 400; }
+
+.results-meta {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-faint);
+  letter-spacing: 0.1em;
+}
+
+/* Gallery grid */
+.gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Artwork card */
+.artwork-card {
+  background: var(--warm-white);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.2s, transform 0.2s;
+  animation: fadeUp 0.4s ease both;
+}
+
+.artwork-card:hover {
+  border-color: var(--gold-light);
+  transform: translateY(-2px);
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.card-image-wrap {
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: var(--parchment);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.card-image-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.artwork-card:hover .card-image-wrap img { transform: scale(1.03); }
+
+.no-img-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+}
+
+.no-img-icon { font-size: 2rem; opacity: 0.3; }
+
+.card-body {
+  padding: 1rem;
+}
+
+.card-dept {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 5px;
+}
+
+.card-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.card-artist {
+  font-size: 12px;
+  color: var(--ink-mid);
+  margin-bottom: 4px;
+  font-style: italic;
+  font-family: 'Cormorant Garamond', serif;
+}
+
+.card-meta {
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-bottom: 10px;
+  font-family: 'DM Mono', monospace;
+}
+
+.card-link {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--gold);
+  text-decoration: none;
+  font-family: 'DM Mono', monospace;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+
+.card-link:hover { border-color: var(--gold); }
+
+/* Loading spinner */
+.loading-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4rem 2rem;
+  gap: 1rem;
+}
+
+.spinner {
+  width: 32px; height: 32px;
+  border: 2px solid var(--border);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-text {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  color: var(--ink-light);
+  font-size: 1.1rem;
+}
+
+/* Error banner */
+.error-banner {
+  background: #FFF5F5;
+  border: 1px solid #FCCACA;
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  font-size: 13px;
+  color: #7A2222;
+  margin-bottom: 1.5rem;
+}
+
+/* Progress bar */
+.progress-wrap {
+  margin: 0.5rem 0;
+}
+
+.progress-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--gold);
+  border-radius: 100px;
+  transition: width 0.2s;
+}
+
+.progress-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-faint);
+  margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+  .app-body { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; }
+  .site-header { padding: 1.5rem; flex-direction: column; align-items: flex-start; }
+  .header-stat { display: none; }
+  .main-content { padding: 1.5rem; }
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-left">
+    <p class="header-eyebrow">Metropolitan Museum of Art · New York</p>
+    <h1 class="header-title">Your Personal <em>Curator</em></h1>
+    <p class="header-sub">Explore the Met's collection through your own artistic lens. Choose a personality, mood, and visual quality to discover works made for you.</p>
+  </div>
+  <div class="header-stat">
+    <div class="stat-num">202K+</div>
+    <div class="stat-label">Public domain works</div>
+  </div>
+</header>
+
+<div class="app-body">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <p class="sidebar-label">Your Preferences</p>
+
+      <div class="filter-group">
+        <p class="filter-label">🎭 Personality Archetype</p>
+        <select id="personalitySelect" onchange="updateKeywords('personality')">
+          <option value="Classicist">Classicist</option>
+          <option value="Romantic">Romantic</option>
+          <option value="Realist">Realist</option>
+          <option value="Innovator">Innovator</option>
+          <option value="Symbolist">Symbolist</option>
+          <option value="Hedonist">Hedonist</option>
+        </select>
+        <div class="keywords-wrap" id="personalityKeywords"></div>
+      </div>
+
+      <div class="filter-group">
+        <p class="filter-label">🌊 Mood &amp; Energy</p>
+        <select id="moodSelect" onchange="updateKeywords('mood')">
+          <option value="Dynamic & Dramatic">Dynamic &amp; Dramatic</option>
+          <option value="Calm & Balanced">Calm &amp; Balanced</option>
+          <option value="Chaotic & Raw">Chaotic &amp; Raw</option>
+          <option value="Warm & Golden">Warm &amp; Golden</option>
+          <option value="Cool & Ethereal">Cool &amp; Ethereal</option>
+          <option value="Vibrant & Unnatural">Vibrant &amp; Unnatural</option>
+          <option value="Muted & Naturalistic">Muted &amp; Naturalistic</option>
+        </select>
+        <div class="keywords-wrap" id="moodKeywords"></div>
+      </div>
+
+      <div class="filter-group">
+        <p class="filter-label">🎨 Visual Quality</p>
+        <select id="visualSelect" onchange="updateKeywords('visual')">
+          <option value="The Human Figure">The Human Figure</option>
+          <option value="Nature & Landscape">Nature &amp; Landscape</option>
+          <option value="The Inner World">The Inner World</option>
+          <option value="Urban & Modern Life">Urban &amp; Modern Life</option>
+          <option value="The Abstract Idea">The Abstract Idea</option>
+          <option value="Smooth & Polished">Smooth &amp; Polished</option>
+          <option value="Textured & Painterly">Textured &amp; Painterly</option>
+          <option value="Ornate & Decorative">Ornate &amp; Decorative</option>
+        </select>
+        <div class="keywords-wrap" id="visualKeywords"></div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <p class="sidebar-label">Filters</p>
+
+      <div class="filter-group">
+        <p class="filter-label">Department</p>
+        <select id="deptSelect">
+          <option value="">All Departments</option>
+          <option value="Drawings and Prints">Drawings and Prints</option>
+          <option value="European Sculpture and Decorative Arts">European Sculpture</option>
+          <option value="Asian Art">Asian Art</option>
+          <option value="Greek and Roman Art">Greek and Roman Art</option>
+          <option value="Egyptian Art">Egyptian Art</option>
+          <option value="Islamic Art">Islamic Art</option>
+          <option value="American Decorative Arts">American Decorative Arts</option>
+          <option value="Costume Institute">Costume Institute</option>
+          <option value="Medieval Art">Medieval Art</option>
+          <option value="Photographs">Photographs</option>
+          <option value="American Paintings and Sculpture">American Paintings</option>
+          <option value="European Paintings">European Paintings</option>
+          <option value="Arms and Armor">Arms and Armor</option>
+          <option value="Modern and Contemporary Art">Modern and Contemporary</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <p class="filter-label">Number of artworks</p>
+        <div class="slider-wrap">
+          <input type="range" id="numSlider" min="3" max="18" value="9" step="3"
+            oninput="document.getElementById('numVal').textContent = this.value">
+          <p class="slider-val" id="numVal">9</p>
+        </div>
+      </div>
+
+      <div class="filter-group">
+        <p class="filter-label">Settings</p>
+        <div class="toggle-row">
+          <span>Load artwork images</span>
+          <label class="toggle">
+            <input type="checkbox" id="loadImages" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <button class="run-btn" onclick="runCurator()">Curate My Collection →</button>
+
+    <div id="progressWrap" class="progress-wrap" style="display:none; margin-top:1rem;">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <p class="progress-label" id="progressLabel">Searching collection...</p>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div id="initialState" class="state-banner">
+      <div class="state-icon">🖼</div>
+      <p class="state-text">Your personal gallery awaits</p>
+      <p class="state-sub">Choose your preferences and click Curate to discover artworks matched to your taste.</p>
+    </div>
+
+    <div id="loadingState" class="loading-wrap" style="display:none;">
+      <div class="spinner"></div>
+      <p class="loading-text" id="loadingMsg">Searching the collection...</p>
+    </div>
+
+    <div id="resultsState" style="display:none;">
+      <div class="results-header">
+        <p class="results-count">Showing <span id="resultsCount">0</span> works</p>
+        <p class="results-meta" id="resultsMeta"></p>
+      </div>
+      <div id="errorBanner" class="error-banner" style="display:none;"></div>
+      <div class="gallery-grid" id="gallery"></div>
+    </div>
+
+    <div id="emptyState" class="state-banner" style="display:none;">
+      <div class="state-icon">🔍</div>
+      <p class="state-text">No artworks found</p>
+      <p class="state-sub">Try adjusting your filters or selecting a different department.</p>
+    </div>
+  </main>
+</div>
+
+<script>
+const personality = {
+  "Classicist": ["order","balance","clarity","timeless","harmony","symmetry","ideal","perfection","restraint","tradition"],
+  "Romantic": ["emotion","imagination","mystery","nature","passion","drama","sublime","intuition","wild","longing"],
+  "Realist": ["truth","authenticity","grounded","pragmatic","observation","unvarnished","direct","honest","everyday"],
+  "Innovator": ["experimental","abstract","intellectual","bold","unconventional","avant-garde","radical","inventive"],
+  "Symbolist": ["metaphor","spiritual","dream","mystical","hidden","coded","visionary","esoteric","subconscious"],
+  "Hedonist": ["sensual","decorative","pleasure","beauty","elegance","ornate","lush","indulgent","playful","charming"]
+};
+
+const moods = {
+  "Dynamic & Dramatic": ["energetic","intense","theatrical","bold","movement","action","contrast","explosive","vigorous"],
+  "Calm & Balanced": ["serene","peaceful","tranquil","restful","meditative","gentle","soothing","harmonious","quiet"],
+  "Chaotic & Raw": ["fragmented","wild","unrestrained","expressive","rough","spontaneous","turbulent","primal"],
+  "Warm & Golden": ["radiant","glowing","sunlit","rich","golden","fiery","warm","amber","luminous","vibrant"],
+  "Cool & Ethereal": ["icy","silvery","misty","pale","delicate","airy","dreamy","soft","ghostly","celestial"],
+  "Vibrant & Unnatural": ["electric","neon","saturated","bold","artificial","psychedelic","pop","striking","vivid"],
+  "Muted & Naturalistic": ["earthy","subdued","soft","gentle","realistic","understated","organic","subtle","quiet"]
+};
+
+const visuals = {
+  "The Human Figure": ["idealized","expressive","deconstructed","portrait","body","anatomy","gesture","character"],
+  "Nature & Landscape": ["sublime","pastoral","wild","scientific","botanical","atmospheric","scenic","rural","natural"],
+  "The Inner World": ["dreamlike","subconscious","visionary","surreal","symbolic","psychological","spiritual"],
+  "Urban & Modern Life": ["city","technology","industrial","social","leisure","critique","modernity","bustle"],
+  "The Abstract Idea": ["form","color","geometry","conceptual","minimal","pure","reduction","structure","pattern"],
+  "Smooth & Polished": ["flawless","marble","glazed","refined","sleek","seamless","glossy","finished","perfect"],
+  "Textured & Painterly": ["impasto","brushwork","rough","tactile","layered","expressive","visible","raw","dynamic"],
+  "Ornate & Decorative": ["intricate","patterned","detailed","gilded","embellished","curvilinear","lavish","baroque"]
+};
+
+function updateKeywords(type) {
+  const maps = { personality, mood: moods, visual: visuals };
+  const selects = { personality: 'personalitySelect', mood: 'moodSelect', visual: 'visualSelect' };
+  const wraps = { personality: 'personalityKeywords', mood: 'moodKeywords', visual: 'visualKeywords' };
+  const val = document.getElementById(selects[type]).value;
+  const keys = maps[type][val] || [];
+  document.getElementById(wraps[type]).innerHTML = keys.slice(0, 8).map(k =>
+    `<span class="keyword-pill">${k}</span>`).join('');
+}
+
+// Init keywords on load
+updateKeywords('personality');
+updateKeywords('mood');
+updateKeywords('visual');
+
+function showState(state) {
+  ['initialState','loadingState','resultsState','emptyState'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById(state).style.display = state === 'resultsState' ? 'block' : 'flex';
+  if (state === 'resultsState') document.getElementById(state).style.display = 'block';
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = label;
+}
+
+async function fetchObjectDetails(objectId) {
+  try {
+    const res = await fetch(`https://collectionapi.metmuseum.org/public/collection/v1/objects/${objectId}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function searchMet(query, deptId) {
+  try {
+    let url = `https://collectionapi.metmuseum.org/public/collection/v1/search?isPublicDomain=true&q=${encodeURIComponent(query)}`;
+    if (deptId) url += `&departmentId=${deptId}`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.objectIDs || [];
+  } catch { return []; }
+}
+
+const DEPT_IDS = {
+  "Drawings and Prints": 9,
+  "European Sculpture and Decorative Arts": 6,
+  "Asian Art": 6,
+  "Greek and Roman Art": 13,
+  "Egyptian Art": 10,
+  "Islamic Art": 14,
+  "American Decorative Arts": 1,
+  "Costume Institute": 8,
+  "Medieval Art": 17,
+  "Photographs": 19,
+  "American Paintings and Sculpture": 2,
+  "European Paintings": 11,
+  "Arms and Armor": 4,
+  "Modern and Contemporary Art": 21
+};
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+async function runCurator() {
+  const pChoice = document.getElementById('personalitySelect').value;
+  const mChoice = document.getElementById('moodSelect').value;
+  const vChoice = document.getElementById('visualSelect').value;
+  const deptChoice = document.getElementById('deptSelect').value;
+  const numArtworks = parseInt(document.getElementById('numSlider').value);
+  const loadImgs = document.getElementById('loadImages').checked;
+
+  showState('loadingState');
+  document.getElementById('progressWrap').style.display = 'block';
+  setProgress(5, 'Building search queries...');
+
+  // Build query from selected keywords
+  const pKeys = personality[pChoice] || [];
+  const mKeys = moods[mChoice] || [];
+  const vKeys = visuals[vChoice] || [];
+
+  // Pick a few representative keywords from each
+  const queryTerms = [
+    pKeys[0], pKeys[1],
+    mKeys[0], mKeys[1],
+    vKeys[0]
+  ].filter(Boolean);
+
+  const query = queryTerms.join(' ');
+  const deptId = deptChoice ? DEPT_IDS[deptChoice] : null;
+
+  document.getElementById('loadingMsg').textContent = `Searching for "${pChoice}" · "${mChoice}"...`;
+  setProgress(20, 'Querying Met collection API...');
+
+  let objectIds = await searchMet(query, deptId);
+
+  // If too few results, try a broader search
+  if (objectIds.length < numArtworks * 2) {
+    const fallback = await searchMet(pKeys[0] || 'art', deptId);
+    const merged = [...new Set([...objectIds, ...fallback])];
+    objectIds = merged;
+  }
+
+  if (objectIds.length === 0) {
+    document.getElementById('progressWrap').style.display = 'none';
+    showState('emptyState');
+    return;
+  }
+
+  setProgress(40, `Found ${objectIds.length} candidates, loading details...`);
+  document.getElementById('loadingMsg').textContent = 'Loading artwork details...';
+
+  // Shuffle and take a pool to fetch from
+  const pool = shuffle([...objectIds]).slice(0, Math.min(60, objectIds.length));
+  const artworks = [];
+  let fetched = 0;
+
+  for (const id of pool) {
+    if (artworks.length >= numArtworks) break;
+    const detail = await fetchObjectDetails(id);
+    fetched++;
+
+    if (detail) {
+      const hasImg = loadImgs ? !!detail.primaryImage : true;
+      if (loadImgs && !hasImg) {
+        const pct = 40 + Math.round((fetched / pool.length) * 50);
+        setProgress(pct, `Checking images: ${fetched}/${Math.min(pool.length, numArtworks * 4)}...`);
+        continue;
+      }
+      artworks.push(detail);
+    }
+
+    const pct = 40 + Math.round((fetched / pool.length) * 50);
+    setProgress(pct, `Loading artwork ${artworks.length} of ${numArtworks}...`);
+
+    if (fetched >= numArtworks * 4 && artworks.length < numArtworks) break;
+  }
+
+  setProgress(100, 'Done!');
+  document.getElementById('progressWrap').style.display = 'none';
+
+  if (artworks.length === 0) {
+    showState('emptyState');
+    return;
+  }
+
+  renderGallery(artworks, pChoice, mChoice, vChoice, loadImgs);
+}
+
+function renderGallery(artworks, pChoice, mChoice, vChoice, loadImgs) {
+  const gallery = document.getElementById('gallery');
+  gallery.innerHTML = '';
+
+  document.getElementById('resultsCount').textContent = artworks.length;
+  document.getElementById('resultsMeta').textContent =
+    `${pChoice} · ${mChoice} · ${vChoice}`.toUpperCase();
+  document.getElementById('errorBanner').style.display = 'none';
+
+  showState('resultsState');
+
+  artworks.forEach((art, i) => {
+    const card = document.createElement('div');
+    card.className = 'artwork-card';
+    card.style.animationDelay = `${i * 60}ms`;
+
+    const imgHtml = loadImgs && art.primaryImage
+      ? `<img src="${art.primaryImage}" alt="${art.title || ''}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=no-img-placeholder><div class=no-img-icon>🖼</div><span>Image unavailable</span></div>'">`
+      : `<div class="no-img-placeholder"><div class="no-img-icon">🖼</div><span>No image</span></div>`;
+
+    const artist = art.artistDisplayName || 'Unknown artist';
+    const date = art.objectDate || '';
+    const dept = art.department || '';
+    const title = (art.title || 'Untitled').slice(0, 70);
+    const url = art.objectURL || `https://www.metmuseum.org/art/collection/search/${art.objectID}`;
+
+    card.innerHTML = `
+      <div class="card-image-wrap">${imgHtml}</div>
+      <div class="card-body">
+        ${dept ? `<p class="card-dept">${dept}</p>` : ''}
+        <p class="card-title">${title}</p>
+        ${artist !== 'Unknown artist' ? `<p class="card-artist">${artist}</p>` : ''}
+        ${date ? `<p class="card-meta">${date}</p>` : ''}
+        <a href="${url}" target="_blank" class="card-link">View on Met →</a>
+      </div>
+    `;
+
+    gallery.appendChild(card);
+  });
+}
+</script>
+</body>
+</html>
