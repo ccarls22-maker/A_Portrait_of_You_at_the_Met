@@ -2,7 +2,7 @@
 ## Option 1 HTML
 
 
-**[→ Try the live app](https://github.com/ccarls22-maker/A_Portrait_of_You_at_the_Met.git)**
+[→ Try the live app](https://github.com/ccarls22-maker/A_Portrait_of_You_at_the_Met)
 
 ---
 
