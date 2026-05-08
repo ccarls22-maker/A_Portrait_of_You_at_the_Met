@@ -1,4 +1,12 @@
-# Accessing the App
+# Accessing the App 
+## Option 1 HTML
+
+
+**[→ Try the live app](https://github.com/ccarls22-maker/A_Portrait_of_You_at_the_Met.git)**
+
+---
+
+## Option 2 StreamLit
 
 You can find the app on my StreamLit Profile or use this link directly:
 [https://aportraitofyouatthemet-2y2ogv9r7mhzrp5tk42nrr.streamlit.app/](https://aportraitofyouatthemet-2y2ogv9r7mhzrp5tk42nrr.streamlit.app/)
